@@ -22,9 +22,17 @@ type partInlineData struct {
 	Data     []byte `json:"data,omitempty"`
 }
 
+type fileData struct {
+	MimeType string `json:"mime_type,omitempty"`
+	FileURI  string `json:"file_uri,omitempty"`
+}
+
 type part struct {
-	Text       string         `json:"text,omitempty"`
+	Text string `json:"text,omitempty"`
+	// Uploaded with /v1beta/cachedContents. Content is deleted after 1 hour.
 	InlineData partInlineData `json:"inline_data,omitzero"`
+	// Uploaded with /upload/v1beta/files. Files are deleted after 2 days.
+	FileData fileData `json:"file_data,omitzero"`
 }
 
 type content struct {
@@ -32,6 +40,18 @@ type content struct {
 	// Must be either 'user' or 'model'.
 	Role string `json:"role,omitempty"`
 }
+
+type toolData struct {
+	DynamicRetrievalConfig dynamicRetrievalConfig `json:"dynamic_retrieval_config,omitzero"`
+}
+
+type dynamicRetrievalConfig struct {
+	Mode              string `json:"mode"`
+	DynamicThreshold  int    `json:"dynamic_threshold"`
+	MaxDynamicResults int    `json:"max_dynamic_results"`
+}
+
+type tool map[string]toolData
 
 type generateContentRequest struct {
 	Model    string    `json:"model,omitempty"`
@@ -44,10 +64,10 @@ type generateContentRequest struct {
 	*/
 	/*
 		SafetySettings:    transformSlice(m.SafetySettings, (*SafetySetting).toProto),
-		Tools:             transformSlice(m.Tools, (*Tool).toProto),
 		ToolConfig:        m.ToolConfig.toProto(),
 		GenerationConfig:  m.GenerationConfig.toProto(),
 	*/
+	Tools             []tool  `json:"tools,omitempty"`
 	SystemInstruction content `json:"systemInstruction,omitzero"`
 	CachedContent     string  `json:"cachedContent,omitempty"`
 }
@@ -87,6 +107,8 @@ type generateContentResponseCandidate struct {
 	FinishReason  string          `json:"finishReason"`
 	AvgLogprobs   float64         `json:"avgLogprobs"`
 	SafetyRatings []safetyRatings `json:"safetyRatings,omitempty"`
+	// https://ai.google.dev/gemini-api/docs/grounding?hl=en&lang=rest#grounded-response
+	// groundingMetadata
 }
 
 type usageMetadata struct {
@@ -166,6 +188,8 @@ func (c *Client) QueryContent(ctx context.Context, systemPrompt, query, mime str
 	response := generateContentResponse{}
 	if len(context) > 0 {
 		if len(context) >= 32768 {
+			// If more than 20MB, we need to use https://ai.google.dev/gemini-api/docs/document-processing?hl=en&lang=rest#large-pdfs-urls
+
 			// Pass the system instruction as a cached content while at it.
 			cacheName, err := c.cacheContent(ctx, context, mime, systemPrompt)
 			if err != nil {
@@ -183,12 +207,22 @@ func (c *Client) QueryContent(ctx context.Context, systemPrompt, query, mime str
 				}}},
 				Role: "user",
 			})
+			/* TODO
+			request.Tools = []tool{
+				{
+					"google_search_retrieval": {
+						DynamicRetrievalConfig: dynamicRetrievalConfig{
+							Mode:              "MODE_DYNAMIC",
+							DynamicThreshold:  1,
+							MaxDynamicResults: 1,
+						},
+					},
+				},
+			}
+			*/
 		}
 	}
-	request.Contents = append(request.Contents, content{
-		Parts: []part{{Text: query}},
-		Role:  "user",
-	})
+	request.Contents = append(request.Contents, content{Parts: []part{{Text: query}}, Role: "user"})
 	if err := c.post(ctx, url, &request, &response); err != nil {
 		return "", err
 	}
