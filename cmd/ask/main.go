@@ -10,9 +10,11 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"mime"
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -24,7 +26,8 @@ import (
 )
 
 type backend interface {
-	Query(ctx context.Context, query string) (string, error)
+	Query(ctx context.Context, systemPrompt, query string) (string, error)
+	QueryContent(ctx context.Context, systemPrompt, query, mime string, content []byte) (string, error)
 }
 
 func mainImpl() error {
@@ -85,6 +88,10 @@ func mainImpl() error {
 	verbose := flag.Bool("v", false, "verbose")
 	provider := flag.String("backend", "gemini", "backend to use")
 	model := flag.String("model", "", "model to use")
+	//  and the wit of Dorothy Parker
+	// "You are an expert at analysing pictures."
+	systemPrompt := flag.String("sys", "You have an holistic knowledge of the world. You reply with the style of William Zinsser.", "system prompt to use")
+	content := flag.String("content", "", "file to analyze")
 	flag.Parse()
 	if flag.NArg() != 1 {
 		return errors.New("ask a question")
@@ -102,6 +109,7 @@ func mainImpl() error {
 		if *model == "" {
 			*model = "gemini-2.0-flash-lite"
 		}
+		slog.Info("main", "model", *model)
 		rawKey, err := os.ReadFile(path.Join(home, "bin", "gemini_api.txt"))
 		if err != nil {
 			return fmt.Errorf("need API key from ttps://aistudio.google.com/apikey: %w", err)
@@ -112,7 +120,22 @@ func mainImpl() error {
 		return fmt.Errorf("unsupported backend %q", *provider)
 	}
 	query := flag.Arg(0)
-	resp, err := b.Query(ctx, query)
+
+	resp := ""
+	if *content != "" {
+		rawContent, err := os.ReadFile(*content)
+		if err != nil {
+			return err
+		}
+		mimeType := mime.TypeByExtension(filepath.Ext(*content))
+		if mimeType == "" {
+			mimeType = "text/plain"
+		}
+		resp, err = b.QueryContent(ctx, *systemPrompt, query, mimeType, rawContent)
+	} else {
+		// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
+		resp, err = b.Query(ctx, *systemPrompt, query)
+	}
 	if err != nil {
 		return err
 	}
