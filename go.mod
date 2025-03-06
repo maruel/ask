@@ -8,4 +8,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 )
 
-require golang.org/x/sys v0.31.0 // indirect
+require (
+	github.com/maruel/genai v0.0.0-20250306143024-83308d618791 // indirect
+	golang.org/x/sys v0.31.0 // indirect
+)

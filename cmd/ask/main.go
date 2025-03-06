@@ -20,15 +20,11 @@ import (
 	"time"
 
 	"github.com/lmittmann/tint"
-	"github.com/maruel/ask/gemini"
+	"github.com/maruel/genai"
+	"github.com/maruel/genai/gemini"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 )
-
-type backend interface {
-	Query(ctx context.Context, systemPrompt, query string) (string, error)
-	QueryContent(ctx context.Context, systemPrompt, query, mime string, content []byte) (string, error)
-}
 
 func mainImpl() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
@@ -103,7 +99,7 @@ func mainImpl() error {
 	if err != nil {
 		return err
 	}
-	var b backend
+	var b genai.Backend
 	switch *provider {
 	case "gemini":
 		if *model == "" {
