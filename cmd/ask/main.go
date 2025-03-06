@@ -22,7 +22,9 @@ import (
 	"github.com/lmittmann/tint"
 	"github.com/maruel/genai"
 	"github.com/maruel/genai/anthropic"
+	"github.com/maruel/genai/deepseek"
 	"github.com/maruel/genai/gemini"
+	"github.com/maruel/genai/groq"
 	"github.com/maruel/genai/openai"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
@@ -84,7 +86,7 @@ func mainImpl() error {
 	}()
 
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("backend", "google", "backend to use: google, openai, anthropic")
+	provider := flag.String("backend", "google", "backend to use: anthropic, deepseek, google, groq or openai")
 	model := flag.String("model", "", "model to use")
 	//  and the wit of Dorothy Parker
 	// "You are an expert at analysing pictures."
@@ -115,6 +117,18 @@ func mainImpl() error {
 		}
 		apiKey := strings.TrimSpace(string(rawKey))
 		b = &anthropic.Client{ApiKey: apiKey, Model: *model}
+	case "deepseek":
+		if *model == "" {
+			// https://api-docs.deepseek.com/quick_start/pricing
+			*model = "deepseek-chat"
+			// But in the evening "deepseek-reasoner" is the same price.
+		}
+		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "deepseek_api.txt"))
+		if err2 != nil {
+			return fmt.Errorf("need API key from https://platform.deepseek.com/api_keys: %w", err2)
+		}
+		apiKey := strings.TrimSpace(string(rawKey))
+		b = &deepseek.Client{ApiKey: apiKey, Model: *model}
 	case "google":
 		if *model == "" {
 			if *content != "" {
@@ -131,6 +145,16 @@ func mainImpl() error {
 		}
 		apiKey := strings.TrimSpace(string(rawKey))
 		b = &gemini.Client{ApiKey: apiKey, Model: *model}
+	case "groq":
+		if *model == "" {
+			*model = "qwen-2.5-coder-32b"
+		}
+		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "groq_api.txt"))
+		if err2 != nil {
+			return fmt.Errorf("need API key from https://console.groq.com/keys: %w", err2)
+		}
+		apiKey := strings.TrimSpace(string(rawKey))
+		b = &groq.Client{ApiKey: apiKey, Model: *model}
 	case "openai":
 		if *model == "" {
 			*model = "gpt-4o-mini"
