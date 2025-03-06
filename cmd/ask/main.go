@@ -22,6 +22,7 @@ import (
 	"github.com/lmittmann/tint"
 	"github.com/maruel/genai"
 	"github.com/maruel/genai/gemini"
+	"github.com/maruel/genai/openai"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 )
@@ -103,20 +104,40 @@ func mainImpl() error {
 	switch *provider {
 	case "gemini":
 		if *model == "" {
-			*model = "gemini-2.0-flash-lite"
+			if *content != "" {
+				// 2025-03-06: Until caching is enabled.
+				// https://ai.google.dev/gemini-api/docs/models/gemini?hl=en
+				*model = "gemini-1.5-flash-002"
+			} else {
+				*model = "gemini-2.0-flash-lite"
+			}
 		}
-		slog.Info("main", "model", *model)
 		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "gemini_api.txt"))
 		if err2 != nil {
-			return fmt.Errorf("need API key from ttps://aistudio.google.com/apikey: %w", err2)
+			return fmt.Errorf("need API key from https://aistudio.google.com/apikey: %w", err2)
 		}
 		apiKey := strings.TrimSpace(string(rawKey))
 		b = &gemini.Client{ApiKey: apiKey, Model: *model}
+	case "openai":
+		if *model == "" {
+			*model = "gpt-4o-mini"
+		}
+		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "openai_api.txt"))
+		if err2 != nil {
+			return fmt.Errorf("need API key from https://platform.openai.com/settings/organization/api-keys: %w", err2)
+		}
+		apiKey := strings.TrimSpace(string(rawKey))
+		b = &openai.Client{ApiKey: apiKey, Model: *model}
 	default:
 		return fmt.Errorf("unsupported backend %q", *provider)
 	}
+	slog.Info("main", "provider", *provider, "model", *model)
 	query := flag.Arg(0)
 
+	msgs := []genai.Message{
+		{Content: *systemPrompt, Role: genai.System},
+		{Content: query, Role: genai.User},
+	}
 	resp := ""
 	if *content != "" {
 		rawContent, err2 := os.ReadFile(*content)
@@ -127,10 +148,10 @@ func mainImpl() error {
 		if mimeType == "" {
 			mimeType = "text/plain"
 		}
-		resp, err = b.QueryContent(ctx, *systemPrompt, query, mimeType, rawContent)
+		resp, err = b.CompletionContent(ctx, msgs, 0, 0, 0, mimeType, rawContent)
 	} else {
 		// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
-		resp, err = b.Query(ctx, *systemPrompt, query)
+		resp, err = b.Completion(ctx, msgs, 0, 0, 0)
 	}
 	if err != nil {
 		return err
