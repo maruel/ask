@@ -21,6 +21,7 @@ import (
 
 	"github.com/lmittmann/tint"
 	"github.com/maruel/genai"
+	"github.com/maruel/genai/anthropic"
 	"github.com/maruel/genai/gemini"
 	"github.com/maruel/genai/openai"
 	"github.com/mattn/go-colorable"
@@ -83,7 +84,7 @@ func mainImpl() error {
 	}()
 
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("backend", "gemini", "backend to use")
+	provider := flag.String("backend", "google", "backend to use: google, openai, anthropic")
 	model := flag.String("model", "", "model to use")
 	//  and the wit of Dorothy Parker
 	// "You are an expert at analysing pictures."
@@ -102,7 +103,19 @@ func mainImpl() error {
 	}
 	var b genai.Backend
 	switch *provider {
-	case "gemini":
+	case "anthropic":
+		if *model == "" {
+			// https://docs.anthropic.com/en/docs/about-claude/models/all-models
+			//*model = "claude-3-7-sonnet-20250219"
+			*model = "claude-3-5-haiku-20241022"
+		}
+		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "anthropic_api.txt"))
+		if err2 != nil {
+			return fmt.Errorf("need API key from https://console.anthropic.com/settings/keys: %w", err2)
+		}
+		apiKey := strings.TrimSpace(string(rawKey))
+		b = &anthropic.Client{ApiKey: apiKey, Model: *model}
+	case "google":
 		if *model == "" {
 			if *content != "" {
 				// 2025-03-06: Until caching is enabled.
