@@ -106,9 +106,9 @@ func mainImpl() error {
 			*model = "gemini-2.0-flash-lite"
 		}
 		slog.Info("main", "model", *model)
-		rawKey, err := os.ReadFile(path.Join(home, "bin", "gemini_api.txt"))
-		if err != nil {
-			return fmt.Errorf("need API key from ttps://aistudio.google.com/apikey: %w", err)
+		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "gemini_api.txt"))
+		if err2 != nil {
+			return fmt.Errorf("need API key from ttps://aistudio.google.com/apikey: %w", err2)
 		}
 		apiKey := strings.TrimSpace(string(rawKey))
 		b = &gemini.Client{ApiKey: apiKey, Model: *model}
@@ -119,9 +119,9 @@ func mainImpl() error {
 
 	resp := ""
 	if *content != "" {
-		rawContent, err := os.ReadFile(*content)
-		if err != nil {
-			return err
+		rawContent, err2 := os.ReadFile(*content)
+		if err2 != nil {
+			return err2
 		}
 		mimeType := mime.TypeByExtension(filepath.Ext(*content))
 		if mimeType == "" {
