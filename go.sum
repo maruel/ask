@@ -1,7 +1,9 @@
 github.com/lmittmann/tint v1.0.7 h1:D/0OqWZ0YOGZ6AyC+5Y2kD8PBEzBk6rFHVSfOqCkF9Y=
 github.com/lmittmann/tint v1.0.7/go.mod h1:HIS3gSy7qNwGCj+5oRjAutErFBl4BzdQP6cJZ0NfMwE=
-github.com/maruel/genai v0.0.0-20250306143024-83308d618791 h1:W5QV3KFdZoQ2PLg/0Hd49stlhgqxQzihv8XZeaIKU38=
-github.com/maruel/genai v0.0.0-20250306143024-83308d618791/go.mod h1:/bnzNDX8xqTZ4kK5a/B45ARAYOXNcKSVxnfEIMDk+cw=
+github.com/maruel/genai v0.0.0-20250306164942-df65f8c80400 h1:v4hEPsEACyxL/pDP6kw4nUL6BMyfV3BMeSh2ECZkEvk=
+github.com/maruel/genai v0.0.0-20250306164942-df65f8c80400/go.mod h1:B3c595nuptygf0HBlc54WYdF8PXI31LPTklyEVlLpV4=
+github.com/maruel/httpjson v0.0.0-20250306164706-47e4ba360524 h1:iDAwBiWlLvA5sY5a7tGEsM94+Vi+t+Sgp6mRMKzhU5w=
+github.com/maruel/httpjson v0.0.0-20250306164706-47e4ba360524/go.mod h1:Rbue+VwOe1TC6doGXddW8EWg2fW4Je6RhCo7iPuNpTo=
 github.com/mattn/go-colorable v0.1.14 h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHPsaIE=
 github.com/mattn/go-colorable v0.1.14/go.mod h1:6LmQG8QLFO4G5z1gPvYEzlUgJ2wF+stgPZH1UqBm1s8=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
