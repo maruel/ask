@@ -12,5 +12,5 @@ Supports using an input file for content analysis, e.g. a picture.
 Install [Go](https://go.dev/dl) and run:
 
 ```bash
-go install github.com/maruel/ask/cmd/ask
+go install github.com/maruel/ask/cmd/ask@latest
 ```
