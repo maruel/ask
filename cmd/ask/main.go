@@ -22,9 +22,11 @@ import (
 	"github.com/lmittmann/tint"
 	"github.com/maruel/genai"
 	"github.com/maruel/genai/anthropic"
+	"github.com/maruel/genai/cohere"
 	"github.com/maruel/genai/deepseek"
 	"github.com/maruel/genai/gemini"
 	"github.com/maruel/genai/groq"
+	"github.com/maruel/genai/mistral"
 	"github.com/maruel/genai/openai"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
@@ -86,7 +88,7 @@ func mainImpl() error {
 	}()
 
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("backend", "google", "backend to use: anthropic, deepseek, google, groq or openai")
+	provider := flag.String("backend", "google", "backend to use: anthropic, cohere, deepseek, google, groq, mistral or openai")
 	model := flag.String("model", "", "model to use")
 	//  and the wit of Dorothy Parker
 	// "You are an expert at analysing pictures."
@@ -117,6 +119,17 @@ func mainImpl() error {
 		}
 		apiKey := strings.TrimSpace(string(rawKey))
 		b = &anthropic.Client{ApiKey: apiKey, Model: *model}
+	case "cohere":
+		if *model == "" {
+			// https://docs.cohere.com/v2/docs/models
+			*model = "command-r7b-12-2024"
+		}
+		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "cohere_api.txt"))
+		if err2 != nil {
+			return fmt.Errorf("need API key from https://dashboard.cohere.com/api-keys: %w", err2)
+		}
+		apiKey := strings.TrimSpace(string(rawKey))
+		b = &cohere.Client{ApiKey: apiKey, Model: *model}
 	case "deepseek":
 		if *model == "" {
 			// https://api-docs.deepseek.com/quick_start/pricing
@@ -155,6 +168,16 @@ func mainImpl() error {
 		}
 		apiKey := strings.TrimSpace(string(rawKey))
 		b = &groq.Client{ApiKey: apiKey, Model: *model}
+	case "mistral":
+		if *model == "" {
+			*model = "ministral-8b-latest"
+		}
+		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "mistral_api.txt"))
+		if err2 != nil {
+			return fmt.Errorf("need API key from https://console.mistral.ai/api-keys: %w", err2)
+		}
+		apiKey := strings.TrimSpace(string(rawKey))
+		b = &mistral.Client{ApiKey: apiKey, Model: *model}
 	case "openai":
 		if *model == "" {
 			*model = "gpt-4o-mini"
