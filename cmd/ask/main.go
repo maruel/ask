@@ -13,21 +13,12 @@ import (
 	"mime"
 	"os"
 	"os/signal"
-	"path"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/lmittmann/tint"
 	"github.com/maruel/genai"
-	"github.com/maruel/genai/anthropic"
-	"github.com/maruel/genai/cohere"
-	"github.com/maruel/genai/deepseek"
-	"github.com/maruel/genai/gemini"
-	"github.com/maruel/genai/groq"
-	"github.com/maruel/genai/mistral"
-	"github.com/maruel/genai/openai"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 )
@@ -101,97 +92,10 @@ func mainImpl() error {
 	if *verbose {
 		programLevel.Set(slog.LevelDebug)
 	}
-	home, err := os.UserHomeDir()
+	b, err := getBackend(*provider, *model, *content != "")
 	if err != nil {
 		return err
 	}
-	var b genai.Backend
-	switch *provider {
-	case "anthropic":
-		if *model == "" {
-			// https://docs.anthropic.com/en/docs/about-claude/models/all-models
-			//*model = "claude-3-7-sonnet-20250219"
-			*model = "claude-3-5-haiku-20241022"
-		}
-		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "anthropic_api.txt"))
-		if err2 != nil {
-			return fmt.Errorf("need API key from https://console.anthropic.com/settings/keys: %w", err2)
-		}
-		apiKey := strings.TrimSpace(string(rawKey))
-		b = &anthropic.Client{ApiKey: apiKey, Model: *model}
-	case "cohere":
-		if *model == "" {
-			// https://docs.cohere.com/v2/docs/models
-			*model = "command-r7b-12-2024"
-		}
-		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "cohere_api.txt"))
-		if err2 != nil {
-			return fmt.Errorf("need API key from https://dashboard.cohere.com/api-keys: %w", err2)
-		}
-		apiKey := strings.TrimSpace(string(rawKey))
-		b = &cohere.Client{ApiKey: apiKey, Model: *model}
-	case "deepseek":
-		if *model == "" {
-			// https://api-docs.deepseek.com/quick_start/pricing
-			*model = "deepseek-chat"
-			// But in the evening "deepseek-reasoner" is the same price.
-		}
-		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "deepseek_api.txt"))
-		if err2 != nil {
-			return fmt.Errorf("need API key from https://platform.deepseek.com/api_keys: %w", err2)
-		}
-		apiKey := strings.TrimSpace(string(rawKey))
-		b = &deepseek.Client{ApiKey: apiKey, Model: *model}
-	case "google":
-		if *model == "" {
-			if *content != "" {
-				// 2025-03-06: Until caching is enabled.
-				// https://ai.google.dev/gemini-api/docs/models/gemini?hl=en
-				*model = "gemini-1.5-flash-002"
-			} else {
-				*model = "gemini-2.0-flash-lite"
-			}
-		}
-		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "gemini_api.txt"))
-		if err2 != nil {
-			return fmt.Errorf("need API key from https://aistudio.google.com/apikey: %w", err2)
-		}
-		apiKey := strings.TrimSpace(string(rawKey))
-		b = &gemini.Client{ApiKey: apiKey, Model: *model}
-	case "groq":
-		if *model == "" {
-			*model = "qwen-2.5-coder-32b"
-		}
-		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "groq_api.txt"))
-		if err2 != nil {
-			return fmt.Errorf("need API key from https://console.groq.com/keys: %w", err2)
-		}
-		apiKey := strings.TrimSpace(string(rawKey))
-		b = &groq.Client{ApiKey: apiKey, Model: *model}
-	case "mistral":
-		if *model == "" {
-			*model = "ministral-8b-latest"
-		}
-		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "mistral_api.txt"))
-		if err2 != nil {
-			return fmt.Errorf("need API key from https://console.mistral.ai/api-keys: %w", err2)
-		}
-		apiKey := strings.TrimSpace(string(rawKey))
-		b = &mistral.Client{ApiKey: apiKey, Model: *model}
-	case "openai":
-		if *model == "" {
-			*model = "gpt-4o-mini"
-		}
-		rawKey, err2 := os.ReadFile(path.Join(home, "bin", "openai_api.txt"))
-		if err2 != nil {
-			return fmt.Errorf("need API key from https://platform.openai.com/settings/organization/api-keys: %w", err2)
-		}
-		apiKey := strings.TrimSpace(string(rawKey))
-		b = &openai.Client{ApiKey: apiKey, Model: *model}
-	default:
-		return fmt.Errorf("unsupported backend %q", *provider)
-	}
-	slog.Info("main", "provider", *provider, "model", *model)
 	query := flag.Arg(0)
 
 	msgs := []genai.Message{
