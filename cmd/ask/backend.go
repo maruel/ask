@@ -11,17 +11,17 @@ import (
 	"path"
 	"strings"
 
-	"github.com/maruel/genai"
 	"github.com/maruel/genai/anthropic"
 	"github.com/maruel/genai/cohere"
 	"github.com/maruel/genai/deepseek"
 	"github.com/maruel/genai/gemini"
+	"github.com/maruel/genai/genaiapi"
 	"github.com/maruel/genai/groq"
 	"github.com/maruel/genai/mistral"
 	"github.com/maruel/genai/openai"
 )
 
-func getBackend(provider, model string, hasContent bool) (genai.Backend, error) {
+func getBackend(provider, model string, hasContent bool) (genaiapi.ChatProvider, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func getBackend(provider, model string, hasContent bool) (genai.Backend, error) 
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		return &deepseek.Client{ApiKey: apiKey, Model: model}, nil
-	case "google":
+	case "gemini":
 		if model == "" {
 			if hasContent {
 				// 2025-03-06: Until caching is enabled.
@@ -96,7 +96,8 @@ func getBackend(provider, model string, hasContent bool) (genai.Backend, error) 
 		return &gemini.Client{ApiKey: apiKey, Model: model}, nil
 	case "groq":
 		if model == "" {
-			model = "qwen-2.5-coder-32b"
+			model = "qwen-qwq-32b"
+			// model = "qwen-2.5-coder-32b"
 		}
 		apiKey := os.Getenv("GROQ_API_KEY")
 		if apiKey == "" {

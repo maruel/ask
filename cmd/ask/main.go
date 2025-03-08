@@ -18,7 +18,7 @@ import (
 	"time"
 
 	"github.com/lmittmann/tint"
-	"github.com/maruel/genai"
+	"github.com/maruel/genai/genaiapi"
 	"github.com/mattn/go-colorable"
 	"github.com/mattn/go-isatty"
 )
@@ -79,11 +79,9 @@ func mainImpl() error {
 	}()
 
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("backend", "google", "backend to use: anthropic, cohere, deepseek, google, groq, mistral or openai")
+	provider := flag.String("provider", "gemini", "backend to use: anthropic, cohere, deepseek, gemini, groq, mistral or openai")
 	model := flag.String("model", "", "model to use")
-	//  and the wit of Dorothy Parker
-	// "You are an expert at analysing pictures."
-	systemPrompt := flag.String("sys", "You have an holistic knowledge of the world. You reply with the style of William Zinsser.", "system prompt to use")
+	systemPrompt := flag.String("sys", "", "system prompt to use")
 	content := flag.String("content", "", "file to analyze")
 	flag.Parse()
 	if flag.NArg() != 1 {
@@ -98,9 +96,9 @@ func mainImpl() error {
 	}
 	query := flag.Arg(0)
 
-	msgs := []genai.Message{
-		{Content: *systemPrompt, Role: genai.System},
-		{Content: query, Role: genai.User},
+	msgs := []genaiapi.Message{
+		{Content: *systemPrompt, Role: genaiapi.System},
+		{Content: query, Role: genaiapi.User},
 	}
 	resp := ""
 	if *content != "" {
