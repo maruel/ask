@@ -101,6 +101,7 @@ func mainImpl() error {
 		{Content: query, Role: genaiapi.User},
 	}
 	resp := ""
+	opts := genaiapi.CompletionOptions{}
 	if *content != "" {
 		rawContent, err2 := os.ReadFile(*content)
 		if err2 != nil {
@@ -110,10 +111,10 @@ func mainImpl() error {
 		if mimeType == "" {
 			mimeType = "text/plain"
 		}
-		resp, err = b.CompletionContent(ctx, msgs, 0, 0, 0, mimeType, rawContent)
+		resp, err = b.CompletionContent(ctx, msgs, &opts, mimeType, rawContent)
 	} else {
 		// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
-		resp, err = b.Completion(ctx, msgs, 0, 0, 0)
+		resp, err = b.Completion(ctx, msgs, &opts)
 	}
 	if err != nil {
 		return err

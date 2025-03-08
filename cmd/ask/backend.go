@@ -21,7 +21,7 @@ import (
 	"github.com/maruel/genai/openai"
 )
 
-func getBackend(provider, model string, hasContent bool) (genaiapi.ChatProvider, error) {
+func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionProvider, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
