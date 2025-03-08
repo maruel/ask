@@ -4,10 +4,10 @@ github.com/andybalholm/brotli v1.1.1 h1:PR2pgnyFznKEugtsUo0xLdDop5SKXd5Qf5ysW+7X
 github.com/andybalholm/brotli v1.1.1/go.mod h1:05ib4cKhjx3OQYUY22hTVd34Bc8upXjOLL2rKwwZBoA=
 github.com/lmittmann/tint v1.0.7 h1:D/0OqWZ0YOGZ6AyC+5Y2kD8PBEzBk6rFHVSfOqCkF9Y=
 github.com/lmittmann/tint v1.0.7/go.mod h1:HIS3gSy7qNwGCj+5oRjAutErFBl4BzdQP6cJZ0NfMwE=
-github.com/maruel/genai v0.0.0-20250308171658-9a8171775900 h1:loTLcIeyZsNAvY1/cesTH4MBgBvZHO/OpuubBJvGMyY=
-github.com/maruel/genai v0.0.0-20250308171658-9a8171775900/go.mod h1:bRL3OzjfqpayYLfpHkEi3AjjpYN/wRkfcQD4iBiVhkw=
-github.com/maruel/httpjson v0.0.0-20250308153423-d73fcd966e61 h1:3T789k0TsdvSYpRT6ntFBMoWQkZBY6xQ1FVjoeQFIWc=
-github.com/maruel/httpjson v0.0.0-20250308153423-d73fcd966e61/go.mod h1:XHQeUdJCj7XG+p9Ov3sMg00tLd6HZQdZhvzvpIzfnTA=
+github.com/maruel/genai v0.0.0-20250308214013-ac145b6da7ba h1:MOVu6Jzk7q6lT83I6ullsELvQoqChTTne6aU5R3qOoU=
+github.com/maruel/genai v0.0.0-20250308214013-ac145b6da7ba/go.mod h1:zqxC19/VZ0ww4ikp+sSFjZ8MFIybnve9fgvZr0cHK4w=
+github.com/maruel/httpjson v0.0.0-20250308212532-06117991b0a9 h1:6+rkmIXl4U+jH+N719+envtp7SRxalX8hNWhupDd4As=
+github.com/maruel/httpjson v0.0.0-20250308212532-06117991b0a9/go.mod h1:XHQeUdJCj7XG+p9Ov3sMg00tLd6HZQdZhvzvpIzfnTA=
 github.com/mattn/go-colorable v0.1.14 h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHPsaIE=
 github.com/mattn/go-colorable v0.1.14/go.mod h1:6LmQG8QLFO4G5z1gPvYEzlUgJ2wF+stgPZH1UqBm1s8=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
