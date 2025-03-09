@@ -14,8 +14,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
+	"unicode"
 
 	"github.com/lmittmann/tint"
 	"github.com/maruel/genai/genaiapi"
@@ -112,15 +114,45 @@ func mainImpl() error {
 			mimeType = "text/plain"
 		}
 		resp, err = b.CompletionContent(ctx, msgs, &opts, mimeType, rawContent)
-	} else {
-		// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
-		resp, err = b.Completion(ctx, msgs, &opts)
-	}
-	if err != nil {
+		if resp != "" {
+			fmt.Println(resp)
+		}
 		return err
 	}
-	fmt.Println(resp)
-	return nil
+	// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
+	words := make(chan string, 10)
+	end := make(chan struct{})
+	go func() {
+		start := true
+		hasLF := false
+		for {
+			select {
+			case <-ctx.Done():
+				goto end
+			case w, ok := <-words:
+				if !ok {
+					goto end
+				}
+				if start {
+					w = strings.TrimLeftFunc(w, unicode.IsSpace)
+					start = false
+				}
+				if w != "" {
+					hasLF = strings.ContainsRune(w, '\n')
+				}
+				os.Stdout.WriteString(w)
+			}
+		}
+	end:
+		if !hasLF {
+			os.Stdout.WriteString("\n")
+		}
+		close(end)
+	}()
+	err = b.CompletionStream(ctx, msgs, &opts, words)
+	close(words)
+	<-end
+	return err
 }
 
 func main() {

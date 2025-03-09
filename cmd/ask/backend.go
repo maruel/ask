@@ -42,7 +42,17 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 			apiKey = strings.TrimSpace(string(rawKey))
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return &anthropic.Client{ApiKey: apiKey, Model: model}, nil
+		c := &anthropic.Client{ApiKey: apiKey, Model: model}
+		/*
+			models, err := c.ListModels(context.Background())
+			if err != nil {
+				return nil, err
+			}
+			for _, m := range models {
+				fmt.Printf("  %#v\n", m)
+			}
+		*/
+		return c, nil
 	case "cohere":
 		if model == "" {
 			// https://docs.cohere.com/v2/docs/models
@@ -57,7 +67,17 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 			apiKey = strings.TrimSpace(string(rawKey))
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return &cohere.Client{ApiKey: apiKey, Model: model}, nil
+		c := &cohere.Client{ApiKey: apiKey, Model: model}
+		/*
+			models, err := c.ListModels(context.Background())
+			if err != nil {
+				return nil, err
+			}
+			for _, m := range models {
+				fmt.Printf("  %#v\n", m)
+			}
+		*/
+		return c, nil
 	case "deepseek":
 		if model == "" {
 			// https://api-docs.deepseek.com/quick_start/pricing
@@ -73,7 +93,17 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 			apiKey = strings.TrimSpace(string(rawKey))
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return &deepseek.Client{ApiKey: apiKey, Model: model}, nil
+		c := &deepseek.Client{ApiKey: apiKey, Model: model}
+		/*
+			models, err := c.ListModels(context.Background())
+			if err != nil {
+				return nil, err
+			}
+			for _, m := range models {
+				fmt.Printf("  %#v\n", m)
+			}
+		*/
+		return c, nil
 	case "gemini":
 		if model == "" {
 			if hasContent {
@@ -93,7 +123,17 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 			apiKey = strings.TrimSpace(string(rawKey))
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return &gemini.Client{ApiKey: apiKey, Model: model}, nil
+		c := &gemini.Client{ApiKey: apiKey, Model: model}
+		/* TODO
+		models, err := c.ListModels(context.Background())
+		if err != nil {
+			return nil, err
+		}
+		for _, m := range models {
+			fmt.Printf("  %#v\n", m)
+		}
+		*/
+		return c, nil
 	case "groq":
 		if model == "" {
 			model = "qwen-qwq-32b"
@@ -108,7 +148,17 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 			apiKey = strings.TrimSpace(string(rawKey))
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return &groq.Client{ApiKey: apiKey, Model: model}, nil
+		c := &groq.Client{ApiKey: apiKey, Model: model}
+		/*
+			models, err := c.ListModels(context.Background())
+			if err != nil {
+				return nil, err
+			}
+			for _, m := range models {
+				fmt.Printf("  %#v\n", m)
+			}
+		*/
+		return c, nil
 	case "mistral":
 		if model == "" {
 			model = "ministral-8b-latest"
@@ -122,7 +172,17 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 			apiKey = strings.TrimSpace(string(rawKey))
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return &mistral.Client{ApiKey: apiKey, Model: model}, nil
+		c := &mistral.Client{ApiKey: apiKey, Model: model}
+		/*
+			models, err := c.ListModels(context.Background())
+			if err != nil {
+				return nil, err
+			}
+			for _, m := range models {
+				fmt.Printf("  %#v\n", m)
+			}
+		*/
+		return c, nil
 	case "openai":
 		if model == "" {
 			model = "gpt-4o-mini"
@@ -136,7 +196,17 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 			apiKey = strings.TrimSpace(string(rawKey))
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return &openai.Client{ApiKey: apiKey, Model: model}, nil
+		c := &openai.Client{ApiKey: apiKey, Model: model}
+		/*
+			models, err := c.ListModels(context.Background())
+			if err != nil {
+				return nil, err
+			}
+			for _, m := range models {
+				fmt.Printf("  %#v\n", m)
+			}
+		*/
+		return c, nil
 	}
 	return nil, fmt.Errorf("unsupported backend %q", provider)
 }
