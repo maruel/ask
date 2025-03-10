@@ -17,9 +17,21 @@ import (
 	"github.com/maruel/genai/gemini"
 	"github.com/maruel/genai/genaiapi"
 	"github.com/maruel/genai/groq"
+	"github.com/maruel/genai/huggingface"
 	"github.com/maruel/genai/mistral"
 	"github.com/maruel/genai/openai"
 )
+
+var Providers = []string{
+	"anthropic",
+	"cohere",
+	"deepseek",
+	"gemini",
+	"groq",
+	"huggingface",
+	"mistral",
+	"openai",
+}
 
 type Provider interface {
 	genaiapi.CompletionProvider
@@ -118,6 +130,13 @@ func GetBackend(provider, model string, hasContent bool) (Provider, error) {
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &groq.Client{ApiKey: apiKey, Model: model}
+		return c, nil
+	case "huggingface":
+		if model == "" {
+			model = "Qwen/QwQ-32B-GGUF"
+		}
+		slog.Info("main", "provider", provider, "model", model)
+		c := &huggingface.Client{Model: model}
 		return c, nil
 	case "mistral":
 		if model == "" {

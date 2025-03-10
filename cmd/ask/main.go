@@ -25,7 +25,7 @@ func mainImpl() error {
 	defer stop()
 
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("provider", "gemini", "backend to use: anthropic, cohere, deepseek, gemini, groq, mistral or openai")
+	provider := flag.String("provider", "gemini", "backend to use: "+strings.Join(internal.Providers, ", "))
 	model := flag.String("model", "", "model to use")
 	systemPrompt := flag.String("sys", "", "system prompt to use")
 	content := flag.String("content", "", "file to analyze")

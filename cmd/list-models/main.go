@@ -12,8 +12,10 @@ import (
 	"log/slog"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/maruel/ask/internal"
+	"github.com/maruel/genai/huggingface"
 )
 
 func mainImpl() error {
@@ -21,7 +23,7 @@ func mainImpl() error {
 	defer stop()
 
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("provider", "", "backend to use: anthropic, cohere, deepseek, gemini, groq, mistral or openai")
+	provider := flag.String("provider", "gemini", "backend to use: "+strings.Join(internal.Providers, ", "))
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return errors.New("unexpected arguments")
@@ -39,10 +41,17 @@ func mainImpl() error {
 	}
 	s := make([]string, 0, len(models))
 	for _, m := range models {
+		if t, ok := m.(*huggingface.Model); ok {
+			if t.TrendingScore < 1 {
+				continue
+			}
+		}
 		s = append(s, m.String())
 		// fmt.Printf("  %#v\n", m)
 	}
-	sort.Strings(s)
+	sort.Slice(s, func(i, j int) bool {
+		return strings.ToLower(s[i]) < strings.ToLower(s[j])
+	})
 	for _, m := range s {
 		fmt.Printf("%s\n", m)
 	}
