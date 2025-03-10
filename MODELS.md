@@ -1,0 +1,217 @@
+Snapshot of the models available on each provider as of 2025-03-10
+
+Provider anthropic:
+- claude-2.0: Claude 2.0 (2023-07-11)
+- claude-2.1: Claude 2.1 (2023-11-21)
+- claude-3-5-haiku-20241022: Claude 3.5 Haiku (2024-10-22)
+- claude-3-5-sonnet-20240620: Claude 3.5 Sonnet (Old) (2024-06-20)
+- claude-3-5-sonnet-20241022: Claude 3.5 Sonnet (New) (2024-10-22)
+- claude-3-7-sonnet-20250219: Claude 3.7 Sonnet (2025-02-24)
+- claude-3-haiku-20240307: Claude 3 Haiku (2024-03-07)
+- claude-3-opus-20240229: Claude 3 Opus (2024-02-29)
+- claude-3-sonnet-20240229: Claude 3 Sonnet (2024-02-29)
+
+Provider cohere:
+- c4ai-aya-expanse-32b: chat/generate. Context: 128000
+- c4ai-aya-expanse-8b: chat/generate. Context: 8192
+- c4ai-aya-vision-32b: chat with vision. Context: 16384 (vision)
+- c4ai-aya-vision-8b: chat with vision. Context: 16384 (vision)
+- command-light-nightly: chat/generate/summarize. Context: 4096
+- command-light: chat/generate/summarize. Context: 4096
+- command-r-08-2024: chat/generate/summarize with json_mode/json_schema/safety_modes/strict_tools/tools. Context: 128000
+- command-r-plus-08-2024: chat/generate/summarize with json_mode/json_schema/safety_modes/strict_tools/tools. Context: 128000
+- command-r-plus: chat/generate/summarize with json_mode/json_schema/safety_modes/strict_tools/tools. Context: 128000
+- command-r7b-12-2024: chat/generate with json_mode/json_schema/safety_modes/strict_tools/tools. Context: 128000
+- command-r7b-arabic-02-2025: chat/generate with json_mode/json_schema/safety_modes/strict_tools/tools. Context: 128000
+- command-r: chat/generate/summarize with json_mode/json_schema/strict_tools/tools. Context: 128000
+- command: chat/generate/summarize. Context: 4096
+- embed-english-light-v2.0: classify/embed. Context: 512
+- embed-english-light-v3.0-image: embed_image. Context: 0
+- embed-english-light-v3.0: classify/embed. Context: 512
+- embed-english-v2.0: classify/embed. Context: 512
+- embed-english-v3.0-image: embed_image. Context: 0
+- embed-english-v3.0: classify/embed. Context: 512
+- embed-multilingual-light-v3.0-image: embed_image. Context: 0
+- embed-multilingual-light-v3.0: classify/embed. Context: 512
+- embed-multilingual-v2.0: classify/embed. Context: 256
+- embed-multilingual-v3.0-image: embed_image. Context: 0
+- embed-multilingual-v3.0: classify/embed. Context: 512
+- rerank-english-v2.0: rerank. Context: 512
+- rerank-english-v3.0: rerank. Context: 4096
+- rerank-multilingual-v2.0: rerank. Context: 512
+- rerank-multilingual-v3.0: rerank. Context: 4096
+- rerank-v3.5: rerank. Context: 4096
+
+Provider deepseek:
+- deepseek-chat
+- deepseek-reasoner
+
+Provider gemini:
+- aqa: Model that performs Attributed Question Answering. (Model trained to return answers to questions that are grounded in provided sources, along with estimating answerable probability.) Context: 7168
+- chat-bison-001: PaLM 2 Chat (Legacy) (A legacy text-only model optimized for chat conversations) Context: 4096
+- embedding-001: Embedding 001 (Obtain a distributed representation of a text.) Context: 2048
+- embedding-gecko-001: Embedding Gecko (Obtain a distributed representation of a text.) Context: 1024
+- gemini-1.0-pro-vision-latest: Gemini 1.0 Pro Vision (The original Gemini 1.0 Pro Vision model version which was optimized for image understanding. Gemini 1.0 Pro Vision was deprecated on July 12, 2024. Move to a newer Gemini version.) Context: 12288
+- gemini-1.5-flash-001-tuning: Gemini 1.5 Flash 001 Tuning (Version of Gemini 1.5 Flash that supports tuning, our fast and versatile multimodal model for scaling across diverse tasks, released in May of 2024.) Context: 16384
+- gemini-1.5-flash-001: Gemini 1.5 Flash 001 (Stable version of Gemini 1.5 Flash, our fast and versatile multimodal model for scaling across diverse tasks, released in May of 2024.) Context: 1000000
+- gemini-1.5-flash-002: Gemini 1.5 Flash 002 (Stable version of Gemini 1.5 Flash, our fast and versatile multimodal model for scaling across diverse tasks, released in September of 2024.) Context: 1000000
+- gemini-1.5-flash-8b-001: Gemini 1.5 Flash-8B 001 (Stable version of Gemini 1.5 Flash-8B, our smallest and most cost effective Flash model, released in October of 2024.) Context: 1000000
+- gemini-1.5-flash-8b-exp-0827: Gemini 1.5 Flash 8B Experimental 0827 (Experimental release (August 27th, 2024) of Gemini 1.5 Flash-8B, our smallest and most cost effective Flash model. Replaced by Gemini-1.5-flash-8b-001 (stable).) Context: 1000000
+- gemini-1.5-flash-8b-exp-0924: Gemini 1.5 Flash 8B Experimental 0924 (Experimental release (September 24th, 2024) of Gemini 1.5 Flash-8B, our smallest and most cost effective Flash model. Replaced by Gemini-1.5-flash-8b-001 (stable).) Context: 1000000
+- gemini-1.5-flash-8b-latest: Gemini 1.5 Flash-8B Latest (Alias that points to the most recent production (non-experimental) release of Gemini 1.5 Flash-8B, our smallest and most cost effective Flash model, released in October of 2024.) Context: 1000000
+- gemini-1.5-flash-8b: Gemini 1.5 Flash-8B (Stable version of Gemini 1.5 Flash-8B, our smallest and most cost effective Flash model, released in October of 2024.) Context: 1000000
+- gemini-1.5-flash-latest: Gemini 1.5 Flash Latest (Alias that points to the most recent production (non-experimental) release of Gemini 1.5 Flash, our fast and versatile multimodal model for scaling across diverse tasks.) Context: 1000000
+- gemini-1.5-flash: Gemini 1.5 Flash (Alias that points to the most recent stable version of Gemini 1.5 Flash, our fast and versatile multimodal model for scaling across diverse tasks.) Context: 1000000
+- gemini-1.5-pro-001: Gemini 1.5 Pro 001 (Stable version of Gemini 1.5 Pro, our mid-size multimodal model that supports up to 2 million tokens, released in May of 2024.) Context: 2000000
+- gemini-1.5-pro-002: Gemini 1.5 Pro 002 (Stable version of Gemini 1.5 Pro, our mid-size multimodal model that supports up to 2 million tokens, released in September of 2024.) Context: 2000000
+- gemini-1.5-pro-latest: Gemini 1.5 Pro Latest (Alias that points to the most recent production (non-experimental) release of Gemini 1.5 Pro, our mid-size multimodal model that supports up to 2 million tokens.) Context: 2000000
+- gemini-1.5-pro: Gemini 1.5 Pro (Stable version of Gemini 1.5 Pro, our mid-size multimodal model that supports up to 2 million tokens, released in May of 2024.) Context: 2000000
+- gemini-2.0-flash-001: Gemini 2.0 Flash 001 (Stable version of Gemini 2.0 Flash, our fast and versatile multimodal model for scaling across diverse tasks, released in January of 2025.) Context: 1048576
+- gemini-2.0-flash-exp: Gemini 2.0 Flash Experimental (Gemini 2.0 Flash Experimental) Context: 1048576
+- gemini-2.0-flash-lite-001: Gemini 2.0 Flash-Lite 001 (Stable version of Gemini 2.0 Flash Lite) Context: 1048576
+- gemini-2.0-flash-lite-preview-02-05: Gemini 2.0 Flash-Lite Preview 02-05 (Preview release (February 5th, 2025) of Gemini 2.0 Flash Lite) Context: 1048576
+- gemini-2.0-flash-lite-preview: Gemini 2.0 Flash-Lite Preview (Preview release (February 5th, 2025) of Gemini 2.0 Flash Lite) Context: 1048576
+- gemini-2.0-flash-lite: Gemini 2.0 Flash-Lite (Gemini 2.0 Flash-Lite) Context: 1048576
+- gemini-2.0-flash-thinking-exp-01-21: Gemini 2.0 Flash Thinking Experimental 01-21 (Experimental release (January 21st, 2025) of Gemini 2.0 Flash Thinking) Context: 1048576
+- gemini-2.0-flash-thinking-exp-1219: Gemini 2.0 Flash Thinking Experimental (Gemini 2.0 Flash Thinking Experimental) Context: 1048576
+- gemini-2.0-flash-thinking-exp: Gemini 2.0 Flash Thinking Experimental 01-21 (Experimental release (January 21st, 2025) of Gemini 2.0 Flash Thinking) Context: 1048576
+- gemini-2.0-flash: Gemini 2.0 Flash (Gemini 2.0 Flash) Context: 1048576
+- gemini-2.0-pro-exp-02-05: Gemini 2.0 Pro Experimental 02-05 (Experimental release (February 5th, 2025) of Gemini 2.0 Pro) Context: 2097152
+- gemini-2.0-pro-exp: Gemini 2.0 Pro Experimental (Experimental release (February 5th, 2025) of Gemini 2.0 Pro) Context: 2097152
+- gemini-embedding-exp-03-07: Gemini Embedding Experimental 03-07 (Obtain a distributed representation of a text.) Context: 2048
+- gemini-embedding-exp: Gemini Embedding Experimental (Obtain a distributed representation of a text.) Context: 2048
+- gemini-exp-1206: Gemini Experimental 1206 (Experimental release (February 5th, 2025) of Gemini 2.0 Pro) Context: 2097152
+- gemini-pro-vision: Gemini 1.0 Pro Vision (The original Gemini 1.0 Pro Vision model version which was optimized for image understanding. Gemini 1.0 Pro Vision was deprecated on July 12, 2024. Move to a newer Gemini version.) Context: 12288
+- imagen-3.0-generate-002: Imagen 3.0 002 model (Vertex served Imagen 3.0 002 model) Context: 480
+- learnlm-1.5-pro-experimental: LearnLM 1.5 Pro Experimental (Alias that points to the most recent stable version of Gemini 1.5 Pro, our mid-size multimodal model that supports up to 2 million tokens.) Context: 32767
+- text-bison-001: PaLM 2 (Legacy) (A legacy model that understands text and generates text as an output) Context: 8196
+- text-embedding-004: Text Embedding 004 (Obtain a distributed representation of a text.) Context: 2048
+
+Provider groq:
+- deepseek-r1-distill-llama-70b (2025-01-26) Context: 131072
+- deepseek-r1-distill-qwen-32b (2025-02-06) Context: 131072
+- distil-whisper-large-v3-en (2023-09-03) Context: 448
+- gemma2-9b-it (2023-09-03) Context: 8192
+- llama-3.1-8b-instant (2023-09-03) Context: 131072
+- llama-3.2-11b-vision-preview (2024-09-24) Context: 8192
+- llama-3.2-1b-preview (2024-09-24) Context: 8192
+- llama-3.2-3b-preview (2024-09-24) Context: 8192
+- llama-3.2-90b-vision-preview (2024-09-24) Context: 8192
+- llama-3.3-70b-specdec (2024-12-06) Context: 8192
+- llama-3.3-70b-versatile (2024-12-05) Context: 32768
+- llama-guard-3-8b (2023-09-03) Context: 8192
+- llama3-70b-8192 (2023-09-03) Context: 8192
+- llama3-8b-8192 (2023-09-03) Context: 8192
+- mistral-saba-24b (2025-02-19) Context: 32768
+- mixtral-8x7b-32768 (2023-09-03) Context: 32768
+- qwen-2.5-32b (2025-02-05) Context: 131072
+- qwen-2.5-coder-32b (2025-02-13) Context: 131072
+- qwen-qwq-32b (2025-03-05) Context: 131072
+- whisper-large-v3 (2023-09-03) Context: 448
+- whisper-large-v3-turbo (2024-10-08) Context: 448
+
+Provider mistral:
+- codestral-2405: chat/fim/function/fine-tuning Context: 32768
+- codestral-2411-rc5 (codestral-2501): chat/fim/function Context: 262144
+- codestral-2412 (codestral-2501): chat/fim/function Context: 262144
+- codestral-2501: chat/fim/function Context: 262144
+- codestral-latest (codestral-2501): chat/fim/function Context: 262144
+- codestral-mamba-2407: chat/function Context: 262144
+- codestral-mamba-latest (codestral-mamba-2407): chat/function Context: 262144
+- ministral-3b-2410: chat/function/fine-tuning Context: 131072
+- ministral-3b-latest (ministral-3b-2410): chat/function/fine-tuning Context: 131072
+- ministral-8b-2410: chat/function Context: 131072
+- ministral-8b-latest (ministral-8b-2410): chat/function Context: 131072
+- mistral-embed:  Context: 32768
+- mistral-large-2402: chat/function Context: 32768
+- mistral-large-2407: chat/function/fine-tuning Context: 131072
+- mistral-large-2411: chat/function/fine-tuning Context: 131072
+- mistral-large-latest (mistral-large-2411): chat/function/fine-tuning Context: 131072
+- mistral-large-pixtral-2411 (pixtral-large-2411): chat/function/vision Context: 131072
+- mistral-medium (mistral-medium-2312): chat/function Context: 32768
+- mistral-medium-2312: chat/function Context: 32768
+- mistral-medium-latest (mistral-medium-2312): chat/function Context: 32768
+- mistral-moderation-2411:  Context: 32768
+- mistral-moderation-latest (mistral-moderation-2411):  Context: 32768
+- mistral-ocr-2503:  Context: 32768
+- mistral-ocr-latest (mistral-ocr-2503):  Context: 32768
+- mistral-saba-2502: chat/function Context: 32768
+- mistral-saba-latest (mistral-saba-2502): chat/function Context: 32768
+- mistral-small (open-mixtral-8x7b): chat/function Context: 32768
+- mistral-small-2312 (open-mixtral-8x7b): chat/function Context: 32768
+- mistral-small-2402: chat/function/fine-tuning Context: 32768
+- mistral-small-2409: chat/function/fine-tuning Context: 32768
+- mistral-small-2501: chat/function Context: 32768
+- mistral-small-latest (mistral-small-2501): chat/function Context: 32768
+- mistral-tiny (open-mistral-7b): chat/function Context: 32768
+- mistral-tiny-2312 (open-mistral-7b): chat/function Context: 32768
+- mistral-tiny-2407 (open-mistral-nemo): chat/function/fine-tuning Context: 131072
+- mistral-tiny-latest (open-mistral-nemo): chat/function/fine-tuning Context: 131072
+- open-codestral-mamba (codestral-mamba-2407): chat/function Context: 262144
+- open-mistral-7b: chat/function Context: 32768
+- open-mistral-nemo-2407 (open-mistral-nemo): chat/function/fine-tuning Context: 131072
+- open-mistral-nemo: chat/function/fine-tuning Context: 131072
+- open-mixtral-8x22b-2404 (open-mixtral-8x22b): chat/function Context: 65536
+- open-mixtral-8x22b: chat/function Context: 65536
+- open-mixtral-8x7b: chat/function Context: 32768
+- pixtral-12b (pixtral-12b-2409): chat/function/vision Context: 131072
+- pixtral-12b-2409: chat/function/vision Context: 131072
+- pixtral-12b-latest (pixtral-12b-2409): chat/function/vision Context: 131072
+- pixtral-large-2411: chat/function/vision Context: 131072
+- pixtral-large-latest (pixtral-large-2411): chat/function/vision Context: 131072
+
+Provider openai:
+- babbage-002 (2023-08-21)
+- chatgpt-4o-latest (2024-08-12)
+- dall-e-2 (2023-10-31)
+- dall-e-3 (2023-10-31)
+- davinci-002 (2023-08-21)
+- gpt-3.5-turbo (2023-02-28)
+- gpt-3.5-turbo-0125 (2024-01-23)
+- gpt-3.5-turbo-1106 (2023-11-02)
+- gpt-3.5-turbo-16k (2023-05-10)
+- gpt-3.5-turbo-instruct (2023-08-24)
+- gpt-3.5-turbo-instruct-0914 (2023-09-07)
+- gpt-4 (2023-06-27)
+- gpt-4-0125-preview (2024-01-23)
+- gpt-4-0613 (2023-06-12)
+- gpt-4-1106-preview (2023-11-02)
+- gpt-4-turbo (2024-04-05)
+- gpt-4-turbo-2024-04-09 (2024-04-08)
+- gpt-4-turbo-preview (2024-01-23)
+- gpt-4.5-preview (2025-02-26)
+- gpt-4.5-preview-2025-02-27 (2025-02-26)
+- gpt-4o (2024-05-10)
+- gpt-4o-2024-05-13 (2024-05-10)
+- gpt-4o-2024-08-06 (2024-08-04)
+- gpt-4o-2024-11-20 (2025-02-11)
+- gpt-4o-audio-preview (2024-09-27)
+- gpt-4o-audio-preview-2024-10-01 (2024-09-26)
+- gpt-4o-audio-preview-2024-12-17 (2024-12-12)
+- gpt-4o-mini (2024-07-16)
+- gpt-4o-mini-2024-07-18 (2024-07-16)
+- gpt-4o-mini-audio-preview (2024-12-16)
+- gpt-4o-mini-audio-preview-2024-12-17 (2024-12-13)
+- gpt-4o-mini-realtime-preview (2024-12-16)
+- gpt-4o-mini-realtime-preview-2024-12-17 (2024-12-13)
+- gpt-4o-realtime-preview (2024-09-29)
+- gpt-4o-realtime-preview-2024-10-01 (2024-09-23)
+- gpt-4o-realtime-preview-2024-12-17 (2024-12-11)
+- o1 (2024-12-16)
+- o1-2024-12-17 (2024-12-16)
+- o1-mini (2024-09-06)
+- o1-mini-2024-09-12 (2024-09-06)
+- o1-preview (2024-09-06)
+- o1-preview-2024-09-12 (2024-09-06)
+- o3-mini (2025-01-17)
+- o3-mini-2025-01-31 (2025-01-27)
+- omni-moderation-2024-09-26 (2024-11-27)
+- omni-moderation-latest (2024-11-15)
+- text-embedding-3-large (2024-01-22)
+- text-embedding-3-small (2024-01-22)
+- text-embedding-ada-002 (2022-12-16)
+- tts-1 (2023-04-19)
+- tts-1-1106 (2023-11-03)
+- tts-1-hd (2023-11-03)
+- tts-1-hd-1106 (2023-11-03)
+- whisper-1 (2023-02-27)

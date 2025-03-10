@@ -43,3 +43,5 @@ ask -provider gemini -model gemini-1.5-flash-002 -sys "You are an expert at anal
 - groq
 - mistral
 - openai
+
+Snapshot of all the supported models: [MODELS.md](MODELS.md).

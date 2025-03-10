@@ -6,17 +6,12 @@
 set -eu
 
 go install ./cmd/list-models
-echo "Anthropic:"
-list-models -provider anthropic | sed 's/^/- /'
-echo "Cohere:"
-list-models -provider cohere | sed 's/^/- /'
-echo "DeepSeek:"
-list-models -provider deepseek | sed 's/^/- /'
-echo "Gemini:"
-list-models -provider gemini | sed 's/^/- /'
-echo "Groq:"
-list-models -provider groq | sed 's/^/- /'
-echo "Mistral:"
-list-models -provider mistral | sed 's/^/- /'
-echo "OpenAI:"
-list-models -provider openai | sed 's/^/- /'
+PROVIDERS=(anthropic cohere deepseek gemini groq mistral openai)
+
+echo "Snapshot of the models available on each provider as of $(date +%Y-%m-%d)"
+
+for i in "${PROVIDERS[@]}"; do
+	echo ""
+    echo "Provider $i:"
+    list-models -provider $i | sed 's/^/- /'
+done
