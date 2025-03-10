@@ -5,6 +5,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"github.com/maruel/genai/huggingface"
 	"github.com/maruel/genai/mistral"
 	"github.com/maruel/genai/openai"
+	"github.com/maruel/genai/perplexity"
 )
 
 var Providers = []string{
@@ -33,11 +35,20 @@ var Providers = []string{
 	"huggingface",
 	"mistral",
 	"openai",
+	"perplexity",
 }
 
 type Provider interface {
 	genaiapi.CompletionProvider
 	genaiapi.ModelProvider
+}
+
+type fakeModel struct {
+	genaiapi.CompletionProvider
+}
+
+func (f *fakeModel) ListModels(ctx context.Context) ([]genaiapi.Model, error) {
+	return nil, nil
 }
 
 func GetBackend(provider, model string, hasContent bool) (Provider, error) {
@@ -186,6 +197,18 @@ func GetBackend(provider, model string, hasContent bool) (Provider, error) {
 		slog.Info("main", "provider", provider, "model", model)
 		c := &openai.Client{ApiKey: apiKey, Model: model}
 		return c, nil
+	case "perplexity":
+		apiKey := os.Getenv("PERPLEXITY_API_KEY")
+		if apiKey == "" {
+			rawKey, err2 := os.ReadFile(path.Join(home, "bin", "perplexity_api.txt"))
+			if err2 != nil {
+				return nil, fmt.Errorf("need API key from https://www.perplexity.ai/settings/api: %w", err2)
+			}
+			apiKey = strings.TrimSpace(string(rawKey))
+		}
+		slog.Info("main", "provider", provider, "model", model)
+		c := &perplexity.Client{ApiKey: apiKey, Model: model}
+		return &fakeModel{c}, nil
 	}
 	return nil, fmt.Errorf("unsupported backend %q", provider)
 }

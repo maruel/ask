@@ -1,8 +1,20 @@
 # ask
 
-Extremely lightweight Go application to query a LLM API. Currently supports
-Anthropic, Cloudflare Workers AI, Cohere, DeepSeek, Google's Gemini, Groq,
-Mistral and OpenAI. Features are in flux and will break regularly.
+Extremely lightweight Go application to query a LLM API.
+
+Implements support for:
+- Anthropic
+- Cloudflare Workers AI
+- Cohere
+- DeepSeek
+- Google's Gemini
+- Groq
+- HuggingFace
+- Mistral
+- OpenAI
+- Perplexity
+
+Features are in flux and will break regularly.
 
 Supports using an input file for content analysis, e.g. a picture.
 
@@ -37,14 +49,7 @@ ask -provider gemini -model gemini-1.5-flash-002 -sys "You are an expert at anal
 
 ## Providers
 
-`ask` uses [genai](http://github.com/maruel/genai):
-- anthropic
-- cohere
-- deepseek
-- gemini
-- groq
-- mistral
-- openai
+`ask` is based on [maruel/genai](http://github.com/maruel/genai).
 
 ## Models
 
