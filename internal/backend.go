@@ -65,7 +65,7 @@ func GetBackend(provider, model string, hasContent bool) (Provider, error) {
 		return c, nil
 	case "cloudflare":
 		if model == "" {
-			model = "claude-3-5-haiku-20241022"
+			model = "@cf/qwen/qwen1.5-1.8b-chat"
 		}
 		accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
 		apiKey := os.Getenv("CLOUDFLARE_API_KEY")
@@ -151,7 +151,7 @@ func GetBackend(provider, model string, hasContent bool) (Provider, error) {
 		return c, nil
 	case "huggingface":
 		if model == "" {
-			model = "Qwen/QwQ-32B-GGUF"
+			model = "Qwen/Qwen2.5-1.5B-Instruct"
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &huggingface.Client{Model: model}
