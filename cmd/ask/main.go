@@ -12,73 +12,17 @@ import (
 	"log/slog"
 	"mime"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
-	"time"
 	"unicode"
 
-	"github.com/lmittmann/tint"
+	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai/genaiapi"
-	"github.com/mattn/go-colorable"
-	"github.com/mattn/go-isatty"
 )
 
 func mainImpl() error {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
+	ctx, stop := internal.Init()
 	defer stop()
-	programLevel := &slog.LevelVar{}
-	programLevel.Set(slog.LevelError)
-	logger := slog.New(tint.NewHandler(colorable.NewColorable(os.Stderr), &tint.Options{
-		Level:      programLevel,
-		TimeFormat: "15:04:05.000", // Like time.TimeOnly plus milliseconds.
-		NoColor:    !isatty.IsTerminal(os.Stderr.Fd()),
-		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-			switch t := a.Value.Any().(type) {
-			case string:
-				if t == "" {
-					return slog.Attr{}
-				}
-			case bool:
-				if !t {
-					return slog.Attr{}
-				}
-			case uint64:
-				if t == 0 {
-					return slog.Attr{}
-				}
-			case int64:
-				if t == 0 {
-					return slog.Attr{}
-				}
-			case float64:
-				if t == 0 {
-					return slog.Attr{}
-				}
-			case time.Time:
-				if t.IsZero() {
-					return slog.Attr{}
-				}
-			case time.Duration:
-				if t == 0 {
-					return slog.Attr{}
-				}
-			}
-			return a
-		},
-	}))
-	slog.SetDefault(logger)
-	go func() {
-		<-ctx.Done()
-		slog.Info("main", "message", "quitting")
-	}()
-	defer func() {
-		if r := recover(); r != nil {
-			slog.Error("main", "panic", r)
-			panic(r)
-		}
-	}()
 
 	verbose := flag.Bool("v", false, "verbose")
 	provider := flag.String("provider", "gemini", "backend to use: anthropic, cohere, deepseek, gemini, groq, mistral or openai")
@@ -90,9 +34,9 @@ func mainImpl() error {
 		return errors.New("ask a question")
 	}
 	if *verbose {
-		programLevel.Set(slog.LevelDebug)
+		internal.Level.Set(slog.LevelDebug)
 	}
-	b, err := getBackend(*provider, *model, *content != "")
+	b, err := internal.GetBackend(*provider, *model, *content != "")
 	if err != nil {
 		return err
 	}

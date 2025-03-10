@@ -2,12 +2,12 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package main
+package internal
 
 import "testing"
 
 func TestGetBackend(t *testing.T) {
-	if _, err := getBackend("bad", "", false); err == nil {
+	if _, err := GetBackend("bad", "", false); err == nil {
 		t.Fatal("expected error")
 	}
 }

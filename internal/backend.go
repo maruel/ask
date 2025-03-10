@@ -2,7 +2,7 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package main
+package internal
 
 import (
 	"fmt"
@@ -21,7 +21,12 @@ import (
 	"github.com/maruel/genai/openai"
 )
 
-func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionProvider, error) {
+type Provider interface {
+	genaiapi.CompletionProvider
+	genaiapi.ModelProvider
+}
+
+func GetBackend(provider, model string, hasContent bool) (Provider, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -43,15 +48,6 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &anthropic.Client{ApiKey: apiKey, Model: model}
-		/*
-			models, err := c.ListModels(context.Background())
-			if err != nil {
-				return nil, err
-			}
-			for _, m := range models {
-				fmt.Printf("  %#v\n", m)
-			}
-		*/
 		return c, nil
 	case "cohere":
 		if model == "" {
@@ -68,15 +64,6 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &cohere.Client{ApiKey: apiKey, Model: model}
-		/*
-			models, err := c.ListModels(context.Background())
-			if err != nil {
-				return nil, err
-			}
-			for _, m := range models {
-				fmt.Printf("  %#v\n", m)
-			}
-		*/
 		return c, nil
 	case "deepseek":
 		if model == "" {
@@ -94,15 +81,6 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &deepseek.Client{ApiKey: apiKey, Model: model}
-		/*
-			models, err := c.ListModels(context.Background())
-			if err != nil {
-				return nil, err
-			}
-			for _, m := range models {
-				fmt.Printf("  %#v\n", m)
-			}
-		*/
 		return c, nil
 	case "gemini":
 		if model == "" {
@@ -124,15 +102,6 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &gemini.Client{ApiKey: apiKey, Model: model}
-		/* TODO
-		models, err := c.ListModels(context.Background())
-		if err != nil {
-			return nil, err
-		}
-		for _, m := range models {
-			fmt.Printf("  %#v\n", m)
-		}
-		*/
 		return c, nil
 	case "groq":
 		if model == "" {
@@ -149,15 +118,6 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &groq.Client{ApiKey: apiKey, Model: model}
-		/*
-			models, err := c.ListModels(context.Background())
-			if err != nil {
-				return nil, err
-			}
-			for _, m := range models {
-				fmt.Printf("  %#v\n", m)
-			}
-		*/
 		return c, nil
 	case "mistral":
 		if model == "" {
@@ -173,15 +133,6 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &mistral.Client{ApiKey: apiKey, Model: model}
-		/*
-			models, err := c.ListModels(context.Background())
-			if err != nil {
-				return nil, err
-			}
-			for _, m := range models {
-				fmt.Printf("  %#v\n", m)
-			}
-		*/
 		return c, nil
 	case "openai":
 		if model == "" {
@@ -197,15 +148,6 @@ func getBackend(provider, model string, hasContent bool) (genaiapi.CompletionPro
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &openai.Client{ApiKey: apiKey, Model: model}
-		/*
-			models, err := c.ListModels(context.Background())
-			if err != nil {
-				return nil, err
-			}
-			for _, m := range models {
-				fmt.Printf("  %#v\n", m)
-			}
-		*/
 		return c, nil
 	}
 	return nil, fmt.Errorf("unsupported backend %q", provider)
