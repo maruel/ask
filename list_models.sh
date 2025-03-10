@@ -6,7 +6,7 @@
 set -eu
 
 go install ./cmd/list-models
-PROVIDERS=(anthropic cohere deepseek gemini groq huggingface mistral openai)
+PROVIDERS=(anthropic cloudflare cohere deepseek gemini groq huggingface mistral openai)
 
 echo "Snapshot of the models available on each provider as of $(date +%Y-%m-%d)"
 

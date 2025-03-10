@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/maruel/genai/anthropic"
+	"github.com/maruel/genai/cloudflare"
 	"github.com/maruel/genai/cohere"
 	"github.com/maruel/genai/deepseek"
 	"github.com/maruel/genai/gemini"
@@ -24,6 +25,7 @@ import (
 
 var Providers = []string{
 	"anthropic",
+	"cloudflare",
 	"cohere",
 	"deepseek",
 	"gemini",
@@ -60,6 +62,22 @@ func GetBackend(provider, model string, hasContent bool) (Provider, error) {
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &anthropic.Client{ApiKey: apiKey, Model: model}
+		return c, nil
+	case "cloudflare":
+		if model == "" {
+			model = "claude-3-5-haiku-20241022"
+		}
+		accountID := os.Getenv("CLOUDFLARE_ACCOUNT_ID")
+		apiKey := os.Getenv("CLOUDFLARE_API_KEY")
+		if apiKey == "" {
+			rawKey, err2 := os.ReadFile(path.Join(home, "bin", "cloudflare_api.txt"))
+			if err2 != nil {
+				return nil, fmt.Errorf("need API key from https://dash.cloudflare.com/profile/api-tokens: %w", err2)
+			}
+			apiKey = strings.TrimSpace(string(rawKey))
+		}
+		slog.Info("main", "provider", provider, "model", model)
+		c := &cloudflare.Client{AccountID: accountID, ApiKey: apiKey, Model: model}
 		return c, nil
 	case "cohere":
 		if model == "" {
