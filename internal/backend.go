@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/maruel/genai/anthropic"
+	"github.com/maruel/genai/cerebras"
 	"github.com/maruel/genai/cloudflare"
 	"github.com/maruel/genai/cohere"
 	"github.com/maruel/genai/deepseek"
@@ -27,6 +28,7 @@ import (
 
 var Providers = []string{
 	"anthropic",
+	"cerebras",
 	"cloudflare",
 	"cohere",
 	"deepseek",
@@ -73,6 +75,21 @@ func GetBackend(provider, model string, hasContent bool) (Provider, error) {
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		c := &anthropic.Client{ApiKey: apiKey, Model: model}
+		return c, nil
+	case "cerebras":
+		if model == "" {
+			model = "llama3.1-8b"
+		}
+		apiKey := os.Getenv("CEREBRAS_API_KEY")
+		if apiKey == "" {
+			rawKey, err2 := os.ReadFile(path.Join(home, "bin", "cerebras_api.txt"))
+			if err2 != nil {
+				return nil, fmt.Errorf("need API key from https://cloud.cerebras.ai/platform/: %w", err2)
+			}
+			apiKey = strings.TrimSpace(string(rawKey))
+		}
+		slog.Info("main", "provider", provider, "model", model)
+		c := &cerebras.Client{ApiKey: apiKey, Model: model}
 		return c, nil
 	case "cloudflare":
 		if model == "" {

@@ -4,6 +4,7 @@ Extremely lightweight Go application to query a LLM API.
 
 Implements support for:
 - Anthropic
+- Cerebras
 - Cloudflare Workers AI
 - Cohere
 - DeepSeek
@@ -20,6 +21,8 @@ Supports using an input file for content analysis, e.g. a picture.
 
 As of March 2025, the following services offer a free tier (other limits
 apply):
+
+- [Cerebras](https://cerebras.ai/inference) has unspecified "generous" free tier
 - [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/platform/pricing/) about 10k tokens/day
 - [Cohere](https://docs.cohere.com/docs/rate-limits) (1000 RPCs/month)
 - [Google's Gemini](https://ai.google.dev/gemini-api/docs/rate-limits) 0.25qps, 1m tokens/month
