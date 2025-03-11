@@ -44,9 +44,17 @@ func mainImpl() error {
 
 	msgs := []genaiapi.Message{}
 	if *systemPrompt != "" {
-		msgs = append(msgs, genaiapi.Message{Content: *systemPrompt, Role: genaiapi.System})
+		msgs = append(msgs, genaiapi.Message{
+			Role:    genaiapi.System,
+			Type:    genaiapi.Text,
+			Content: *systemPrompt,
+		})
 	}
-	msgs = append(msgs, genaiapi.Message{Content: query, Role: genaiapi.User})
+	msgs = append(msgs, genaiapi.Message{
+		Role:    genaiapi.User,
+		Type:    genaiapi.Text,
+		Content: query,
+	})
 	resp := ""
 	opts := genaiapi.CompletionOptions{}
 	if *content != "" {
