@@ -85,12 +85,12 @@ func mainImpl() error {
 				if w != "" {
 					hasLF = strings.ContainsRune(w, '\n')
 				}
-				os.Stdout.WriteString(w)
+				_, _ = os.Stdout.WriteString(w)
 			}
 		}
 	end:
 		if !hasLF {
-			os.Stdout.WriteString("\n")
+			_, _ = os.Stdout.WriteString("\n")
 		}
 		close(end)
 	}()
