@@ -10,9 +10,7 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"mime"
 	"os"
-	"path/filepath"
 	"strings"
 	"unicode"
 
@@ -45,32 +43,35 @@ func mainImpl() error {
 	msgs := []genaiapi.Message{}
 	if *systemPrompt != "" {
 		msgs = append(msgs, genaiapi.Message{
-			Role:    genaiapi.System,
-			Type:    genaiapi.Text,
-			Content: *systemPrompt,
+			Role: genaiapi.System,
+			Type: genaiapi.Text,
+			Text: *systemPrompt,
 		})
 	}
 	msgs = append(msgs, genaiapi.Message{
-		Role:    genaiapi.User,
-		Type:    genaiapi.Text,
-		Content: query,
+		Role: genaiapi.User,
+		Type: genaiapi.Text,
+		Text: query,
 	})
-	resp := ""
+	// resp := ""
 	opts := genaiapi.CompletionOptions{}
 	if *content != "" {
-		rawContent, err2 := os.ReadFile(*content)
-		if err2 != nil {
-			return err2
-		}
-		mimeType := mime.TypeByExtension(filepath.Ext(*content))
-		if mimeType == "" {
-			mimeType = "text/plain"
-		}
-		resp, err = b.CompletionContent(ctx, msgs, &opts, mimeType, rawContent)
-		if resp != "" {
-			fmt.Println(resp)
-		}
-		return err
+		/*
+			rawContent, err2 := os.ReadFile(*content)
+			if err2 != nil {
+				return err2
+			}
+			mimeType := mime.TypeByExtension(filepath.Ext(*content))
+			if mimeType == "" {
+				mimeType = "text/plain"
+			}
+			resp, err = b.CompletionContent(ctx, msgs, &opts, mimeType, rawContent)
+			if resp != "" {
+				fmt.Println(resp)
+			}
+			return err
+		*/
+		return errors.New("not implemented")
 	}
 	// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
 	words := make(chan string, 10)
