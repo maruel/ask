@@ -152,7 +152,7 @@ jobs:
       run: |
         # Skip MODELS.md because it's generated.
         FILES=$(git ls-files | grep -v '^\.' | grep -v '^MODELS\.md')
-        ERR=$(misspell . $FILES)
+        ERR=$(misspell $FILES)
         if ! test -z "$ERR"; then
           echo "$ERR"
           echo "## ⚠ misspell Failed" >> ../_comments.txt
