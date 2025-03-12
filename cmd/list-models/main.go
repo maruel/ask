@@ -31,7 +31,7 @@ func mainImpl() error {
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
 	}
-	b, err := internal.GetBackend(*provider, "", false)
+	b, err := internal.GetBackend(*provider, "")
 	if err != nil {
 		return err
 	}

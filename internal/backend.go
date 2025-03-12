@@ -53,7 +53,7 @@ func (f *fakeModel) ListModels(ctx context.Context) ([]genaiapi.Model, error) {
 	return nil, nil
 }
 
-func GetBackend(provider, model string, hasContent bool) (Provider, error) {
+func GetBackend(provider, model string) (Provider, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -142,13 +142,7 @@ func GetBackend(provider, model string, hasContent bool) (Provider, error) {
 		return c, nil
 	case "gemini":
 		if model == "" {
-			if hasContent {
-				// 2025-03-06: Until caching is enabled.
-				// https://ai.google.dev/gemini-api/docs/models/gemini?hl=en
-				model = "gemini-1.5-flash-002"
-			} else {
-				model = "gemini-2.0-flash-lite"
-			}
+			model = "gemini-2.0-flash-lite"
 		}
 		apiKey := os.Getenv("GEMINI_API_KEY")
 		if apiKey == "" {

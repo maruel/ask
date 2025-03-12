@@ -34,7 +34,7 @@ func mainImpl() error {
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
 	}
-	b, err := internal.GetBackend(*provider, *model, *content != "")
+	b, err := internal.GetBackend(*provider, *model)
 	if err != nil {
 		return err
 	}
@@ -48,31 +48,25 @@ func mainImpl() error {
 			Text: *systemPrompt,
 		})
 	}
+	if *content != "" {
+		f, err2 := os.Open(*content)
+		if err2 != nil {
+			return err2
+		}
+		defer f.Close()
+		msgs = append(msgs, genaiapi.Message{
+			Role:     genaiapi.User,
+			Type:     genaiapi.Document,
+			Document: f,
+			Filename: f.Name(),
+		})
+	}
 	msgs = append(msgs, genaiapi.Message{
 		Role: genaiapi.User,
 		Type: genaiapi.Text,
 		Text: query,
 	})
-	// resp := ""
 	opts := genaiapi.CompletionOptions{}
-	if *content != "" {
-		/*
-			rawContent, err2 := os.ReadFile(*content)
-			if err2 != nil {
-				return err2
-			}
-			mimeType := mime.TypeByExtension(filepath.Ext(*content))
-			if mimeType == "" {
-				mimeType = "text/plain"
-			}
-			resp, err = b.CompletionContent(ctx, msgs, &opts, mimeType, rawContent)
-			if resp != "" {
-				fmt.Println(resp)
-			}
-			return err
-		*/
-		return errors.New("not implemented")
-	}
 	// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
 	words := make(chan string, 10)
 	end := make(chan struct{})
