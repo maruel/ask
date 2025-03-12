@@ -7,7 +7,7 @@ package internal
 import "testing"
 
 func TestGetBackend(t *testing.T) {
-	if _, err := GetBackend("bad", "", false); err == nil {
+	if _, err := GetBackend("bad", ""); err == nil {
 		t.Fatal("expected error")
 	}
 }
