@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/lmittmann/tint v1.0.7
-	github.com/maruel/genai v0.0.0-20250313125143-b136d87af694
+	github.com/maruel/genai v0.0.0-20250313181802-3142ad1ba93e
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
 )
@@ -12,7 +12,7 @@ require (
 require (
 	github.com/DataDog/zstd v1.5.6 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
-	github.com/maruel/httpjson v0.0.0-20250309152437-7a06a5bd21aa // indirect
+	github.com/maruel/httpjson v0.0.0-20250310175526-cef4d3a1f686 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 )
 
