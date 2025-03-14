@@ -68,7 +68,7 @@ func mainImpl() error {
 	})
 	opts := genaiapi.CompletionOptions{}
 	// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
-	words := make(chan string, 10)
+	chunks := make(chan genaiapi.MessageChunk)
 	end := make(chan struct{})
 	go func() {
 		start := true
@@ -77,18 +77,18 @@ func mainImpl() error {
 			select {
 			case <-ctx.Done():
 				goto end
-			case w, ok := <-words:
+			case pkt, ok := <-chunks:
 				if !ok {
 					goto end
 				}
 				if start {
-					w = strings.TrimLeftFunc(w, unicode.IsSpace)
+					pkt.Text = strings.TrimLeftFunc(pkt.Text, unicode.IsSpace)
 					start = false
 				}
-				if w != "" {
-					hasLF = strings.ContainsRune(w, '\n')
+				if pkt.Text != "" {
+					hasLF = strings.ContainsRune(pkt.Text, '\n')
 				}
-				_, _ = os.Stdout.WriteString(w)
+				_, _ = os.Stdout.WriteString(pkt.Text)
 			}
 		}
 	end:
@@ -97,8 +97,8 @@ func mainImpl() error {
 		}
 		close(end)
 	}()
-	err = b.CompletionStream(ctx, msgs, &opts, words)
-	close(words)
+	err = b.CompletionStream(ctx, msgs, &opts, chunks)
+	close(chunks)
 	<-end
 	return err
 }
