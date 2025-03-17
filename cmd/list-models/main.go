@@ -23,7 +23,7 @@ func mainImpl() error {
 	defer stop()
 
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("provider", "gemini", "backend to use: "+strings.Join(internal.Providers, ", "))
+	provider := flag.String("provider", "", "backend to use: "+strings.Join(internal.Providers, ", "))
 	flag.Parse()
 	if flag.NArg() != 0 {
 		return errors.New("unexpected arguments")
