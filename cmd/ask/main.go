@@ -41,13 +41,6 @@ func mainImpl() error {
 	query := flag.Arg(0)
 
 	msgs := []genaiapi.Message{}
-	if *systemPrompt != "" {
-		msgs = append(msgs, genaiapi.Message{
-			Role: genaiapi.System,
-			Type: genaiapi.Text,
-			Text: *systemPrompt,
-		})
-	}
 	if *content != "" {
 		f, err2 := os.Open(*content)
 		if err2 != nil {
@@ -66,7 +59,9 @@ func mainImpl() error {
 		Type: genaiapi.Text,
 		Text: query,
 	})
-	opts := genaiapi.CompletionOptions{}
+	opts := genaiapi.CompletionOptions{
+		SystemPrompt: *systemPrompt,
+	}
 	// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
 	chunks := make(chan genaiapi.MessageChunk)
 	end := make(chan struct{})
