@@ -49,21 +49,15 @@ func mainImpl() error {
 		defer f.Close()
 		msgs = append(msgs, genaiapi.Message{
 			Role:     genaiapi.User,
-			Type:     genaiapi.Document,
-			Document: f,
-			Filename: f.Name(),
+			Contents: []genaiapi.Content{{Document: f, Filename: f.Name()}},
 		})
 	}
-	msgs = append(msgs, genaiapi.Message{
-		Role: genaiapi.User,
-		Type: genaiapi.Text,
-		Text: query,
-	})
+	msgs = append(msgs, genaiapi.NewTextMessage(genaiapi.User, query))
 	opts := genaiapi.CompletionOptions{
 		SystemPrompt: *systemPrompt,
 	}
 	// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
-	chunks := make(chan genaiapi.MessageChunk)
+	chunks := make(chan genaiapi.MessageFragment)
 	end := make(chan struct{})
 	go func() {
 		start := true
@@ -77,13 +71,13 @@ func mainImpl() error {
 					goto end
 				}
 				if start {
-					pkt.Text = strings.TrimLeftFunc(pkt.Text, unicode.IsSpace)
+					pkt.TextFragment = strings.TrimLeftFunc(pkt.TextFragment, unicode.IsSpace)
 					start = false
 				}
-				if pkt.Text != "" {
-					hasLF = strings.ContainsRune(pkt.Text, '\n')
+				if pkt.TextFragment != "" {
+					hasLF = strings.ContainsRune(pkt.TextFragment, '\n')
 				}
-				_, _ = os.Stdout.WriteString(pkt.Text)
+				_, _ = os.Stdout.WriteString(pkt.TextFragment)
 			}
 		}
 	end:

@@ -52,8 +52,5 @@ ask -provider gemini -model gemini-1.5-flash-002 -sys "You are an expert at anal
 
 ## Providers
 
-`ask` is based on [maruel/genai](http://github.com/maruel/genai).
-
-## Models
-
-Snapshot of all the supported models: [MODELS.md](MODELS.md).
+`ask` is based on [maruel/genai](http://github.com/maruel/genai) and supports
+all the providers and models it supports.
