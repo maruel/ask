@@ -9,13 +9,13 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/maruel/genai"
 	"github.com/maruel/genai/anthropic"
 	"github.com/maruel/genai/cerebras"
 	"github.com/maruel/genai/cloudflare"
 	"github.com/maruel/genai/cohere"
 	"github.com/maruel/genai/deepseek"
 	"github.com/maruel/genai/gemini"
-	"github.com/maruel/genai/genaiapi"
 	"github.com/maruel/genai/groq"
 	"github.com/maruel/genai/huggingface"
 	"github.com/maruel/genai/mistral"
@@ -38,15 +38,15 @@ var Providers = []string{
 }
 
 type Provider interface {
-	genaiapi.CompletionProvider
-	genaiapi.ModelProvider
+	genai.ChatProvider
+	genai.ModelProvider
 }
 
 type fakeModel struct {
-	genaiapi.CompletionProvider
+	genai.ChatProvider
 }
 
-func (f *fakeModel) ListModels(ctx context.Context) ([]genaiapi.Model, error) {
+func (f *fakeModel) ListModels(ctx context.Context) ([]genai.Model, error) {
 	return nil, nil
 }
 
@@ -119,7 +119,7 @@ func GetBackend(provider, model string) (Provider, error) {
 		return openai.New("", model)
 	case "perplexity":
 		slog.Info("main", "provider", provider, "model", model)
-		c, err := perplexity.New("")
+		c, err := perplexity.New("", "sonar")
 		if err != nil {
 			return nil, err
 		}

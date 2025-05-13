@@ -15,7 +15,7 @@ import (
 	"unicode"
 
 	"github.com/maruel/ask/internal"
-	"github.com/maruel/genai/genaiapi"
+	"github.com/maruel/genai"
 )
 
 func mainImpl() error {
@@ -40,24 +40,24 @@ func mainImpl() error {
 	}
 	query := flag.Arg(0)
 
-	msgs := []genaiapi.Message{}
+	msgs := genai.Messages{}
 	if *content != "" {
 		f, err2 := os.Open(*content)
 		if err2 != nil {
 			return err2
 		}
 		defer f.Close()
-		msgs = append(msgs, genaiapi.Message{
-			Role:     genaiapi.User,
-			Contents: []genaiapi.Content{{Document: f, Filename: f.Name()}},
+		msgs = append(msgs, genai.Message{
+			Role:     genai.User,
+			Contents: []genai.Content{{Document: f, Filename: f.Name()}},
 		})
 	}
-	msgs = append(msgs, genaiapi.NewTextMessage(genaiapi.User, query))
-	opts := genaiapi.CompletionOptions{
+	msgs = append(msgs, genai.NewTextMessage(genai.User, query))
+	opts := genai.ChatOptions{
 		SystemPrompt: *systemPrompt,
 	}
 	// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
-	chunks := make(chan genaiapi.MessageFragment)
+	chunks := make(chan genai.MessageFragment)
 	end := make(chan struct{})
 	go func() {
 		start := true
@@ -86,7 +86,7 @@ func mainImpl() error {
 		}
 		close(end)
 	}()
-	err = b.CompletionStream(ctx, msgs, &opts, chunks)
+	err = b.ChatStream(ctx, msgs, &opts, chunks)
 	close(chunks)
 	<-end
 	return err
