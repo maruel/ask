@@ -86,7 +86,7 @@ func mainImpl() error {
 		}
 		close(end)
 	}()
-	err = b.ChatStream(ctx, msgs, &opts, chunks)
+	_, err = b.ChatStream(ctx, msgs, &opts, chunks)
 	close(chunks)
 	<-end
 	return err

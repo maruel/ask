@@ -18,6 +18,7 @@ import (
 	"github.com/maruel/genai/gemini"
 	"github.com/maruel/genai/groq"
 	"github.com/maruel/genai/huggingface"
+	"github.com/maruel/genai/llamacpp"
 	"github.com/maruel/genai/mistral"
 	"github.com/maruel/genai/openai"
 	"github.com/maruel/genai/perplexity"
@@ -105,6 +106,16 @@ func GetBackend(provider, model string) (Provider, error) {
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		return huggingface.New("", model)
+	case "llamacpp":
+		if model == "" {
+			model = "127.0.0.1:8080"
+		}
+		slog.Info("main", "provider", provider, "model", model)
+		c, err := llamacpp.New(model, nil)
+		if err != nil {
+			return nil, err
+		}
+		return &fakeModel{c}, nil
 	case "mistral":
 		if model == "" {
 			model = "ministral-8b-latest"
