@@ -126,7 +126,7 @@ func run(ctx context.Context, query, filename string) error {
 
 		**Style:** ` + style + `.
 		**Background:** Plain solid white (no background colors/elements). Absolutely no black background.
-		**Content & Motion:** Clearly depict **{{prompt}}** action with colored, moving subject (no static images). If there's an action specified, it should be the main difference between frames.
+		**Content & Motion:** Clearly depict **` + prompt + `** action with colored, moving subject (no static images). If there's an action specified, it should be the main difference between frames.
 		**Frame Count:** At least 5 frames showing continuous progression and at most 10 frames.
 		**Format:** Square image (1:1 aspect ratio).
 		**Cropping:** Absolutely no black bars/letterboxing; colorful doodle fully visible against white.
