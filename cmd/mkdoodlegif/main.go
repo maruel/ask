@@ -191,6 +191,7 @@ func run(ctx context.Context, query, filename string) error {
 	if len(imgs) == 0 {
 		return nil
 	}
+	imgs = trimImages(imgs)
 	// Accumulate the images, save as a GIF.
 	g := gif.GIF{
 		Config: image.Config{
@@ -212,6 +213,15 @@ func run(ctx context.Context, query, filename string) error {
 	}
 	defer f.Close()
 	return gif.EncodeAll(f, &g)
+}
+
+// trimImages detected borders on all sides and trim them.
+// It may change the aspect ratio a little.
+func trimImages(imgs []image.Image) []image.Image {
+	// TODO: Implement code that looks at the pixels of each picture, for each sides (top, left, right, bottom),
+	// to detect if they are all the exact same color. If so, trim the image down to remove this row/column from
+	// the returned images.
+	return imgs
 }
 
 func mainImpl() error {
