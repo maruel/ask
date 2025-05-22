@@ -17,6 +17,7 @@ import (
 	"image/png"
 	"io"
 	"log/slog"
+	"math"
 	"os"
 	"strings"
 	"unicode"
@@ -215,13 +216,128 @@ func run(ctx context.Context, query, filename string) error {
 	return gif.EncodeAll(f, &g)
 }
 
-// trimImages detected borders on all sides and trim them.
+// trimImages detects borders on all sides and trims them.
 // It may change the aspect ratio a little.
 func trimImages(imgs []image.Image) []image.Image {
-	// TODO: Implement code that looks at the pixels of each picture, for each sides (top, left, right, bottom),
-	// to detect if they are all the exact same color. If so, trim the image down to remove this row/column from
-	// the returned images.
-	return imgs
+	if len(imgs) == 0 {
+		return imgs
+	}
+
+	// Find the maximum possible trimming for each edge
+	maxTop, maxLeft, maxRight, maxBottom := math.MaxInt, math.MaxInt, math.MaxInt, math.MaxInt
+	for _, img := range imgs {
+		bounds := img.Bounds()
+		width, height := bounds.Dx(), bounds.Dy()
+
+		// Find top uniform color edge
+		top := 0
+		for y := bounds.Min.Y; y < bounds.Min.Y+height; y++ {
+			edgeColor := img.At(bounds.Min.X, y)
+			uniform := true
+			for x := bounds.Min.X; x < bounds.Min.X+width; x++ {
+				if !colorEqual(img.At(x, y), edgeColor) {
+					uniform = false
+					break
+				}
+			}
+			if !uniform {
+				top = y - bounds.Min.Y
+				break
+			}
+		}
+		if top < maxTop {
+			maxTop = top
+		}
+
+		// Find left uniform color edge
+		left := 0
+		for x := bounds.Min.X; x < bounds.Min.X+width; x++ {
+			edgeColor := img.At(x, bounds.Min.Y)
+			uniform := true
+			for y := bounds.Min.Y; y < bounds.Min.Y+height; y++ {
+				if !colorEqual(img.At(x, y), edgeColor) {
+					uniform = false
+					break
+				}
+			}
+			if !uniform {
+				left = x - bounds.Min.X
+				break
+			}
+		}
+		if left < maxLeft {
+			maxLeft = left
+		}
+
+		// Find right uniform color edge
+		right := 0
+		for x := bounds.Max.X - 1; x >= bounds.Min.X; x-- {
+			edgeColor := img.At(x, bounds.Min.Y)
+			uniform := true
+			for y := bounds.Min.Y; y < bounds.Min.Y+height; y++ {
+				if !colorEqual(img.At(x, y), edgeColor) {
+					uniform = false
+					break
+				}
+			}
+			if !uniform {
+				right = bounds.Max.X - 1 - x
+				break
+			}
+		}
+		if right < maxRight {
+			maxRight = right
+		}
+
+		// Find bottom uniform color edge
+		bottom := 0
+		for y := bounds.Max.Y - 1; y >= bounds.Min.Y; y-- {
+			edgeColor := img.At(bounds.Min.X, y)
+			uniform := true
+			for x := bounds.Min.X; x < bounds.Min.X+width; x++ {
+				if !colorEqual(img.At(x, y), edgeColor) {
+					uniform = false
+					break
+				}
+			}
+			if !uniform {
+				bottom = bounds.Max.Y - 1 - y
+				break
+			}
+		}
+		if bottom < maxBottom {
+			maxBottom = bottom
+		}
+	}
+
+	// If no uniform borders found, return original images
+	if maxTop == 0 && maxLeft == 0 && maxRight == 0 && maxBottom == 0 {
+		return imgs
+	}
+	// Trim all images by the common amount
+	trimmedImgs := make([]image.Image, len(imgs))
+	for i, img := range imgs {
+		bounds := img.Bounds()
+		// Calculate new bounds
+		newBounds := image.Rect(
+			bounds.Min.X+maxLeft,
+			bounds.Min.Y+maxTop,
+			bounds.Max.X-maxRight,
+			bounds.Max.Y-maxBottom,
+		)
+		// Create a new image with the trimmed dimensions
+		trimmed := image.NewNRGBA(image.Rect(0, 0, newBounds.Dx(), newBounds.Dy()))
+		draw.Draw(trimmed, trimmed.Bounds(), img, newBounds.Min, draw.Src)
+		trimmedImgs[i] = trimmed
+	}
+	return trimmedImgs
+}
+
+// colorEqual checks if two colors are equal by comparing their RGBA values.
+func colorEqual(c1, c2 color.Color) bool {
+	r1, g1, b1, a1 := c1.RGBA()
+	r2, g2, b2, a2 := c2.RGBA()
+	return r1 == r2 && g1 == g2 && b1 == b2 && a1 == a2
 }
 
 func mainImpl() error {
