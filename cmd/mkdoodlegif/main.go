@@ -83,7 +83,7 @@ func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts g
 }
 
 func run(ctx context.Context, query, filename string) error {
-	cBase, err := gemini.New("", "gemini-2.0-flash")
+	cBase, err := gemini.New("", "gemini-2.0-flash", nil)
 	if err != nil {
 		return err
 	}
@@ -129,7 +129,7 @@ func run(ctx context.Context, query, filename string) error {
 	}
 	// Doesn't support image generation yet?
 	// const model = "gemini-2.5-flash-preview-05-20"
-	cImg, err := gemini.New("", "gemini-2.0-flash-preview-image-generation")
+	cImg, err := gemini.New("", "gemini-2.0-flash-preview-image-generation", nil)
 	if err != nil {
 		return err
 	}

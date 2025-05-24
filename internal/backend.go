@@ -60,25 +60,25 @@ func GetBackend(provider, model string) (Provider, error) {
 			model = "claude-3-5-haiku-20241022"
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return anthropic.New("", model)
+		return anthropic.New("", model, nil)
 	case "cerebras":
 		if model == "" {
 			model = "llama3.1-8b"
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return cerebras.New("", model)
+		return cerebras.New("", model, nil)
 	case "cloudflare":
 		if model == "" {
 			model = "@cf/qwen/qwen1.5-1.8b-chat"
 		}
-		return cloudflare.New("", "", model)
+		return cloudflare.New("", "", model, nil)
 	case "cohere":
 		if model == "" {
 			// https://docs.cohere.com/v2/docs/models
 			model = "command-r7b-12-2024"
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return cohere.New("", model)
+		return cohere.New("", model, nil)
 	case "deepseek":
 		if model == "" {
 			// https://api-docs.deepseek.com/quick_start/pricing
@@ -86,32 +86,32 @@ func GetBackend(provider, model string) (Provider, error) {
 			// But in the evening "deepseek-reasoner" is the same price.
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return deepseek.New("", model)
+		return deepseek.New("", model, nil)
 	case "gemini":
 		if model == "" {
 			model = "gemini-2.0-flash-lite"
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return gemini.New("", model)
+		return gemini.New("", model, nil)
 	case "groq":
 		if model == "" {
 			model = "qwen-qwq-32b"
 			// model = "qwen-2.5-coder-32b"
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return groq.New("", model)
+		return groq.New("", model, nil)
 	case "huggingface":
 		if model == "" {
 			model = "Qwen/Qwen2.5-1.5B-Instruct"
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return huggingface.New("", model)
+		return huggingface.New("", model, nil)
 	case "llamacpp":
 		if model == "" {
 			model = "127.0.0.1:8080"
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		c, err := llamacpp.New(model, nil)
+		c, err := llamacpp.New(model, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -121,16 +121,16 @@ func GetBackend(provider, model string) (Provider, error) {
 			model = "ministral-8b-latest"
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return mistral.New("", model)
+		return mistral.New("", model, nil)
 	case "openai":
 		if model == "" {
 			model = "gpt-4o-mini"
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return openai.New("", model)
+		return openai.New("", model, nil)
 	case "perplexity":
 		slog.Info("main", "provider", provider, "model", model)
-		c, err := perplexity.New("", "sonar")
+		c, err := perplexity.New("", "sonar", nil)
 		if err != nil {
 			return nil, err
 		}
