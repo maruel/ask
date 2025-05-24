@@ -194,6 +194,7 @@ func run(ctx context.Context, query, filename string) error {
 		g.Image = append(g.Image, pm)
 		g.Delay = append(g.Delay, 100)
 	}
+	fmt.Printf("Creating %s\n", filename)
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
