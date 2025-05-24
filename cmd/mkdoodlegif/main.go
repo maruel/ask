@@ -36,27 +36,21 @@ const systemPrompt = `**Generate simple, animated doodle GIFs on white from user
 **Key Constraints:** No racial labels. Neutral skin tone descriptors when included. Cartoonish/doodle style always implied, especially for people. One text display method only.
 `
 
-func runSync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Validatable) (genai.Messages, error) {
+func runSync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Validatable) (genai.Message, error) {
 	resp, err := c.Chat(ctx, msgs, opts)
-	if err != nil {
-		return nil, err
-	}
-	return genai.Messages{resp.Message}, err
+	return resp.Message, err
 }
 
-func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Validatable) (genai.Messages, error) {
+func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Validatable) (genai.Message, error) {
 	chunks := make(chan genai.MessageFragment)
-	ch := make(chan genai.Messages)
 	eg := errgroup.Group{}
 	eg.Go(func() error {
-		var m genai.Messages
 		hasLF := false
 		start := true
 		defer func() {
 			if !hasLF {
 				_, _ = os.Stdout.WriteString("\n")
 			}
-			ch <- m
 		}()
 		for {
 			select {
@@ -65,12 +59,6 @@ func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts g
 			case pkt, ok := <-chunks:
 				if !ok {
 					return nil
-				}
-				// Everytime a new Content is generated, the previous one could be shown.
-				var err error
-				m, err = pkt.Accumulate(m)
-				if err != nil {
-					return err
 				}
 				if start {
 					pkt.TextFragment = strings.TrimLeftFunc(pkt.TextFragment, unicode.IsSpace)
@@ -86,13 +74,12 @@ func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts g
 		}
 	})
 
-	_, err2 := c.ChatStream(ctx, msgs, opts, chunks)
+	resp, err2 := c.ChatStream(ctx, msgs, opts, chunks)
 	close(chunks)
-	msg := <-ch
 	if err3 := eg.Wait(); err2 == nil {
 		err2 = err3
 	}
-	return msg, err2
+	return resp.Message, err2
 }
 
 func run(ctx context.Context, query, filename string) error {
@@ -109,14 +96,11 @@ func run(ctx context.Context, query, filename string) error {
 			Seed:         1,
 		},
 	}
-	msgs, err = runSync(ctx, cBase, msgs, &opts)
+	msg, err := runSync(ctx, cBase, msgs, &opts)
 	if err != nil {
 		return err
 	}
-	if len(msgs) != 1 {
-		return fmt.Errorf("expected one message, got %d", len(msgs))
-	}
-	processed := msgs[0].AsText()
+	processed := msg.AsText()
 	fmt.Printf("Prompt is: %s\n", processed)
 	fmt.Printf("Generating images...\n")
 	prompt := `A doodle animation on a white background of ` + processed + `. Subtle motion but nothing else moves.`
@@ -149,44 +133,46 @@ func run(ctx context.Context, query, filename string) error {
 	if err != nil {
 		return err
 	}
-	msgs, err = runAsync(ctx, cImg, msgs, &opts)
+	msg, err = runAsync(ctx, cImg, msgs, &opts)
 	if err != nil {
 		return err
 	}
 	var imgs []image.Image
-	for _, msg := range msgs {
-		index := 0
-		for _, c := range msg.Contents {
+	index := 0
+	for _, c := range msg.Contents {
+		if c.Text != "" {
 			if strings.TrimSpace(c.Text) != "" {
 				fmt.Printf("%s\n", c.Text)
-			} else if c.Thinking != "" {
-				fmt.Printf("%s\n", c.Thinking)
-			} else if c.Document != nil {
-				if !strings.HasSuffix(c.Filename, ".png") {
-					fmt.Printf("Unexpected file %q\n", c.Filename)
-					continue
-				}
-				img, err := png.Decode(c.Document)
-				if err != nil {
-					return err
-				}
-				imgs = append(imgs, img)
-				name := fmt.Sprintf("content%d.png", index)
-				index++
-				fmt.Printf("Creating %s\n", name)
-				f, err := os.Create(name)
-				if err != nil {
-					return err
-				}
-				c.Document.Seek(0, 0)
-				_, err = io.Copy(f, c.Document)
-				_ = f.Close()
-				if err != nil {
-					return err
-				}
-			} else if c.URL != "" {
-				fmt.Printf("URL: %s\n", c.URL)
 			}
+		} else if c.Thinking != "" {
+			fmt.Printf("%s\n", c.Thinking)
+		} else if c.Document != nil {
+			if !strings.HasSuffix(c.Filename, ".png") {
+				fmt.Printf("Unexpected file %q\n", c.Filename)
+				continue
+			}
+			img, err := png.Decode(c.Document)
+			if err != nil {
+				return err
+			}
+			imgs = append(imgs, img)
+			name := fmt.Sprintf("content%d.png", index)
+			index++
+			fmt.Printf("Creating %s\n", name)
+			f, err := os.Create(name)
+			if err != nil {
+				return err
+			}
+			c.Document.Seek(0, 0)
+			_, err = io.Copy(f, c.Document)
+			_ = f.Close()
+			if err != nil {
+				return err
+			}
+		} else if c.URL != "" {
+			fmt.Printf("URL: %s\n", c.URL)
+		} else {
+			return fmt.Errorf("unexpected content: %+v", c)
 		}
 	}
 	if len(imgs) == 0 {
