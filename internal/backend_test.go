@@ -4,10 +4,13 @@
 
 package internal
 
-import "testing"
+import (
+	"net/http"
+	"testing"
+)
 
 func TestGetBackend(t *testing.T) {
-	if _, err := GetBackend("bad", ""); err == nil {
+	if _, err := GetBackend("bad", "", http.DefaultTransport); err == nil {
 		t.Fatal("expected error")
 	}
 }
