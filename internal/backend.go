@@ -20,8 +20,11 @@ import (
 	"github.com/maruel/genai/huggingface"
 	"github.com/maruel/genai/llamacpp"
 	"github.com/maruel/genai/mistral"
+	"github.com/maruel/genai/ollama"
 	"github.com/maruel/genai/openai"
 	"github.com/maruel/genai/perplexity"
+	"github.com/maruel/genai/pollinations"
+	"github.com/maruel/genai/togetherai"
 )
 
 var Providers = []string{
@@ -122,6 +125,12 @@ func GetBackend(provider, model string) (Provider, error) {
 		}
 		slog.Info("main", "provider", provider, "model", model)
 		return mistral.New("", model, nil)
+	case "ollama":
+		if model == "" {
+			model = "gemma:4b"
+		}
+		slog.Info("main", "provider", provider, "model", model)
+		return ollama.New("http://localhost:11434", model, nil)
 	case "openai":
 		if model == "" {
 			model = "gpt-4o-mini"
@@ -135,6 +144,18 @@ func GetBackend(provider, model string) (Provider, error) {
 			return nil, err
 		}
 		return &fakeModel{c}, nil
+	case "pollinations":
+		if model == "" {
+			model = "openai-fast"
+		}
+		slog.Info("main", "provider", provider, "model", model)
+		return pollinations.New("", model, nil)
+	case "togetherai":
+		if model == "" {
+			model = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+		}
+		slog.Info("main", "provider", provider, "model", model)
+		return togetherai.New("", model, nil)
 	}
 	return nil, fmt.Errorf("unsupported backend %q", provider)
 }

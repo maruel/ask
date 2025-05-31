@@ -6,17 +6,30 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
+	"mime"
 	"os"
+	"path/filepath"
 	"strings"
 	"unicode"
 
 	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
 )
+
+type stringsFlag []string
+
+func (s *stringsFlag) Set(value string) error {
+	*s = append(*s, value)
+	return nil
+}
+
+func (s *stringsFlag) String() string {
+	return strings.Join(([]string)(*s), ", ")
+}
 
 func mainImpl() error {
 	ctx, stop := internal.Init()
@@ -26,11 +39,9 @@ func mainImpl() error {
 	provider := flag.String("provider", "gemini", "backend to use: "+strings.Join(internal.Providers, ", "))
 	model := flag.String("model", "", "model to use")
 	systemPrompt := flag.String("sys", "", "system prompt to use")
-	content := flag.String("content", "", "file to analyze")
+	var files stringsFlag
+	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times")
 	flag.Parse()
-	if flag.NArg() != 1 {
-		return errors.New("ask a question")
-	}
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
 	}
@@ -38,25 +49,31 @@ func mainImpl() error {
 	if err != nil {
 		return err
 	}
-	query := flag.Arg(0)
-
-	msgs := genai.Messages{}
-	if *content != "" {
-		f, err2 := os.Open(*content)
+	var msgs genai.Messages
+	for _, query := range flag.Args() {
+		msgs = append(msgs, genai.NewTextMessage(genai.User, query))
+	}
+	for _, n := range files {
+		f, err2 := os.Open(n)
 		if err2 != nil {
 			return err2
 		}
 		defer f.Close()
-		msgs = append(msgs, genai.Message{
-			Role:     genai.User,
-			Contents: []genai.Content{{Document: f, Filename: f.Name()}},
-		})
+		mimeType := mime.TypeByExtension(filepath.Ext(n))
+		if strings.HasPrefix(mimeType, "text/plain") {
+			d, err := io.ReadAll(f)
+			if err != nil {
+				return err
+			}
+			msgs = append(msgs, genai.NewTextMessage(genai.User, string(d)))
+		} else {
+			msgs = append(msgs, genai.Message{
+				Role:     genai.User,
+				Contents: []genai.Content{{Document: f, Filename: f.Name()}},
+			})
+		}
 	}
-	msgs = append(msgs, genai.NewTextMessage(genai.User, query))
-	opts := genai.ChatOptions{
-		SystemPrompt: *systemPrompt,
-	}
-	// https://ai.google.dev/gemini-api/docs/file-prompting-strategies?hl=en is pretty good.
+	opts := genai.ChatOptions{SystemPrompt: *systemPrompt}
 	chunks := make(chan genai.MessageFragment)
 	end := make(chan struct{})
 	go func() {
@@ -86,9 +103,22 @@ func mainImpl() error {
 		}
 		close(end)
 	}()
-	_, err = b.ChatStream(ctx, msgs, &opts, chunks)
+	res, err := b.ChatStream(ctx, msgs, &opts, chunks)
 	close(chunks)
 	<-end
+	for _, c := range res.Contents {
+		if c.Document != nil {
+			n := c.GetFilename()
+			fmt.Printf("- Writing %s\n", n)
+			d, err := io.ReadAll(c.Document)
+			if err != nil {
+				return err
+			}
+			if err = os.WriteFile(n, d, 0o644); err != nil {
+				return err
+			}
+		}
+	}
 	return err
 }
 
