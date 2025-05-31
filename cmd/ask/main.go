@@ -11,6 +11,7 @@ import (
 	"io"
 	"log/slog"
 	"mime"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
+	"github.com/maruel/roundtrippers"
 )
 
 type stringsFlag []string
@@ -42,10 +44,15 @@ func mainImpl() error {
 	var files stringsFlag
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times")
 	flag.Parse()
+	r := http.DefaultTransport
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
+		r = &roundtrippers.Log{
+			Transport: r,
+			L:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		}
 	}
-	b, err := internal.GetBackend(*provider, *model)
+	b, err := internal.GetBackend(*provider, *model, r)
 	if err != nil {
 		return err
 	}
@@ -73,6 +80,7 @@ func mainImpl() error {
 			})
 		}
 	}
+
 	opts := genai.ChatOptions{SystemPrompt: *systemPrompt}
 	chunks := make(chan genai.MessageFragment)
 	end := make(chan struct{})
