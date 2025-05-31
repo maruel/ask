@@ -130,7 +130,7 @@ func GetBackend(provider, model string) (Provider, error) {
 			model = "gemma:4b"
 		}
 		slog.Info("main", "provider", provider, "model", model)
-		return ollama.New("http://localhost:11434", model, nil)
+		return ollama.New("", model, nil)
 	case "openai":
 		if model == "" {
 			model = "gpt-4o-mini"
