@@ -81,7 +81,7 @@ func mainImpl() error {
 		}
 	}
 
-	opts := genai.TextOptions{SystemPrompt: *systemPrompt}
+	opts := genai.OptionsText{SystemPrompt: *systemPrompt}
 	chunks := make(chan genai.ContentFragment)
 	end := make(chan struct{})
 	go func() {

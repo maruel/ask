@@ -89,8 +89,8 @@ func run(ctx context.Context, query, filename string) error {
 	}
 	fmt.Printf("Generating prompt...\n")
 	msgs := genai.Messages{genai.NewTextMessage(genai.User, query)}
-	opts := gemini.TextOptions{
-		TextOptions: genai.TextOptions{
+	opts := gemini.OptionsText{
+		OptionsText: genai.OptionsText{
 			SystemPrompt: systemPrompt,
 			Temperature:  1,
 			Seed:         1,
@@ -120,9 +120,9 @@ func run(ctx context.Context, query, filename string) error {
 	msgs = genai.Messages{
 		genai.NewTextMessage(genai.User, contents),
 	}
-	opts = gemini.TextOptions{
+	opts = gemini.OptionsText{
 		ResponseModalities: []gemini.Modality{gemini.ModalityText, gemini.ModalityImage},
-		TextOptions: genai.TextOptions{
+		OptionsText: genai.OptionsText{
 			Temperature: 1,
 			Seed:        1,
 		},
