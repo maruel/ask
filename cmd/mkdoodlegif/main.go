@@ -36,13 +36,13 @@ const systemPrompt = `**Generate simple, animated doodle GIFs on white from user
 **Key Constraints:** No racial labels. Neutral skin tone descriptors when included. Cartoonish/doodle style always implied, especially for people. One text display method only.
 `
 
-func runSync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Validatable) (genai.Message, error) {
-	resp, err := c.Chat(ctx, msgs, opts)
+func runSync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Options) (genai.Message, error) {
+	resp, err := c.GenSync(ctx, msgs, opts)
 	return resp.Message, err
 }
 
-func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Validatable) (genai.Message, error) {
-	chunks := make(chan genai.MessageFragment)
+func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Options) (genai.Message, error) {
+	chunks := make(chan genai.ContentFragment)
 	eg := errgroup.Group{}
 	eg.Go(func() error {
 		hasLF := false
@@ -74,7 +74,7 @@ func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts g
 		}
 	})
 
-	resp, err2 := c.ChatStream(ctx, msgs, opts, chunks)
+	resp, err2 := c.GenStream(ctx, msgs, chunks, opts)
 	close(chunks)
 	if err3 := eg.Wait(); err2 == nil {
 		err2 = err3
@@ -89,8 +89,8 @@ func run(ctx context.Context, query, filename string) error {
 	}
 	fmt.Printf("Generating prompt...\n")
 	msgs := genai.Messages{genai.NewTextMessage(genai.User, query)}
-	opts := gemini.ChatOptions{
-		ChatOptions: genai.ChatOptions{
+	opts := gemini.TextOptions{
+		TextOptions: genai.TextOptions{
 			SystemPrompt: systemPrompt,
 			Temperature:  1,
 			Seed:         1,
@@ -120,9 +120,9 @@ func run(ctx context.Context, query, filename string) error {
 	msgs = genai.Messages{
 		genai.NewTextMessage(genai.User, contents),
 	}
-	opts = gemini.ChatOptions{
+	opts = gemini.TextOptions{
 		ResponseModalities: []gemini.Modality{gemini.ModalityText, gemini.ModalityImage},
-		ChatOptions: genai.ChatOptions{
+		TextOptions: genai.TextOptions{
 			Temperature: 1,
 			Seed:        1,
 		},

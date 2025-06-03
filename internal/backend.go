@@ -43,12 +43,12 @@ var Providers = []string{
 }
 
 type Provider interface {
-	genai.ProviderChat
+	genai.ProviderGen
 	genai.ProviderModel
 }
 
 type fakeModel struct {
-	genai.ProviderChat
+	genai.ProviderGen
 }
 
 func (f *fakeModel) ListModels(ctx context.Context) ([]genai.Model, error) {

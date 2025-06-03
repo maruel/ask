@@ -81,8 +81,8 @@ func mainImpl() error {
 		}
 	}
 
-	opts := genai.ChatOptions{SystemPrompt: *systemPrompt}
-	chunks := make(chan genai.MessageFragment)
+	opts := genai.TextOptions{SystemPrompt: *systemPrompt}
+	chunks := make(chan genai.ContentFragment)
 	end := make(chan struct{})
 	go func() {
 		start := true
@@ -111,7 +111,7 @@ func mainImpl() error {
 		}
 		close(end)
 	}()
-	res, err := b.ChatStream(ctx, msgs, &opts, chunks)
+	res, err := b.GenStream(ctx, msgs, chunks, &opts)
 	close(chunks)
 	<-end
 	for _, c := range res.Contents {
