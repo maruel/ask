@@ -24,7 +24,7 @@ import (
 
 	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
-	"github.com/maruel/genai/gemini"
+	"github.com/maruel/genai/providers/gemini"
 	"golang.org/x/sync/errgroup"
 )
 

@@ -22,8 +22,8 @@ import (
 
 	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
-	"github.com/maruel/genai/anthropic"
-	"github.com/maruel/genai/bfl"
+	"github.com/maruel/genai/providers/anthropic"
+	"github.com/maruel/genai/providers/bfl"
 	"github.com/maruel/roundtrippers"
 )
 
