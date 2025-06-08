@@ -114,7 +114,9 @@ func mainImpl() error {
 			})
 		}
 	}
-
+	if len(msgs) == 0 {
+		return errors.New("need a prompt or input files")
+	}
 	opts := genai.OptionsText{SystemPrompt: *systemPrompt}
 	chunks := make(chan genai.ContentFragment)
 	end := make(chan struct{})
