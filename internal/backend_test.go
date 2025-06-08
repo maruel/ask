@@ -3,14 +3,3 @@
 // that can be found in the LICENSE file.
 
 package internal
-
-import (
-	"net/http"
-	"testing"
-)
-
-func TestGetBackend(t *testing.T) {
-	if _, err := GetBackend("bad", "", http.DefaultTransport); err == nil {
-		t.Fatal("expected error")
-	}
-}

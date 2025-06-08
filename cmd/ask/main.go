@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -14,11 +15,15 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
+	"sort"
 	"strings"
 	"unicode"
 
 	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
+	"github.com/maruel/genai/base"
+	"github.com/maruel/genai/providers"
 	"github.com/maruel/roundtrippers"
 )
 
@@ -33,29 +38,58 @@ func (s *stringsFlag) String() string {
 	return strings.Join(([]string)(*s), ", ")
 }
 
+func getProviders() []string {
+	var names []string
+	for name, f := range providers.All {
+		c, err := f("", nil)
+		if err != nil {
+			continue
+		}
+		if _, ok := c.(genai.ProviderGen); ok {
+			names = append(names, name)
+		}
+		// We could also test for genai.ProviderGenDocToGen.
+	}
+	sort.Strings(names)
+	return names
+}
+
 func mainImpl() error {
 	ctx, stop := internal.Init()
 	defer stop()
 
+	names := getProviders()
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("provider", "gemini", "backend to use: "+strings.Join(internal.Providers, ", "))
-	model := flag.String("model", "", "model to use")
+	provider := flag.String("provider", "gemini", "backend to use: "+strings.Join(names, ", "))
+	model := flag.String("model", "", "model to use, defaults to a cheap model")
 	systemPrompt := flag.String("sys", "", "system prompt to use")
 	var files stringsFlag
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times")
 	flag.Parse()
-	r := http.DefaultTransport
+	var wrapper func(http.RoundTripper) http.RoundTripper
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
-		r = &roundtrippers.Log{
-			Transport: r,
-			L:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		wrapper = func(r http.RoundTripper) http.RoundTripper {
+			return &roundtrippers.Log{
+				Transport: r,
+				L:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
+			}
 		}
 	}
-	b, err := internal.GetBackend(*provider, *model, r)
+	if *provider == "" {
+		return errors.New("-provider is required")
+	}
+	if !slices.Contains(names, *provider) {
+		return errors.New("unknown provider")
+	}
+	if *model == "" {
+		*model = base.PreferredCheap
+	}
+	b, err := providers.All[*provider](*model, wrapper)
 	if err != nil {
 		return err
 	}
+	c := b.(genai.ProviderGen)
 	var msgs genai.Messages
 	for _, query := range flag.Args() {
 		msgs = append(msgs, genai.NewTextMessage(genai.User, query))
@@ -111,7 +145,7 @@ func mainImpl() error {
 		}
 		close(end)
 	}()
-	res, err := b.GenStream(ctx, msgs, chunks, &opts)
+	res, err := c.GenStream(ctx, msgs, chunks, &opts)
 	close(chunks)
 	<-end
 	for _, c := range res.Contents {

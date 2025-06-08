@@ -16,34 +16,31 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
-	"github.com/maruel/genai/providers/anthropic"
-	"github.com/maruel/genai/providers/bfl"
+	"github.com/maruel/genai/base"
+	"github.com/maruel/genai/providers"
 	"github.com/maruel/roundtrippers"
 )
 
-var providers = map[string]func(m string, r http.RoundTripper) (genai.ProviderGenAsync, error){
-	"anthropic": func(m string, r http.RoundTripper) (genai.ProviderGenAsync, error) {
-		return anthropic.New("", m, r)
-	},
-	"bfl": func(m string, r http.RoundTripper) (genai.ProviderGenAsync, error) {
-		return bfl.New("", m, r)
-	},
-}
-
-var providerNames []string
-
-func init() {
-	providerNames = make([]string, 0, len(providers))
-	for name := range providers {
-		providerNames = append(providerNames, name)
+func getProviders() []string {
+	var names []string
+	for name, f := range providers.All {
+		c, err := f("", nil)
+		if err != nil {
+			continue
+		}
+		if _, ok := c.(genai.ProviderGenAsync); ok {
+			names = append(names, name)
+		}
 	}
-	sort.Strings(providerNames)
+	sort.Strings(names)
+	return names
 }
 
 type stringsFlag []string
@@ -60,35 +57,39 @@ func (s *stringsFlag) String() string {
 func cmdEnqueue(args []string) error {
 	ctx, stop := internal.Init()
 	defer stop()
+
+	names := getProviders()
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("provider", "", "backend to use: "+strings.Join(providerNames, ", "))
-	model := flag.String("model", "", "model to use")
+	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
+	model := flag.String("model", "", "model to use, defaults to a cheap model")
 	systemPrompt := flag.String("sys", "", "system prompt to use")
 	var files stringsFlag
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times")
 	flag.CommandLine.Parse(args)
-	r := http.DefaultTransport
+	var wrapper func(http.RoundTripper) http.RoundTripper
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
-		r = &roundtrippers.Log{
-			Transport: r,
-			L:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		wrapper = func(r http.RoundTripper) http.RoundTripper {
+			return &roundtrippers.Log{
+				Transport: r,
+				L:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
+			}
 		}
 	}
 	if *provider == "" {
 		return errors.New("-provider is required")
 	}
+	if !slices.Contains(names, *provider) {
+		return errors.New("unknown provider")
+	}
 	if *model == "" {
-		return errors.New("-model is required")
+		*model = base.PreferredCheap
 	}
-	fn := providers[*provider]
-	if fn == nil {
-		return fmt.Errorf("unknown backend %q", *provider)
-	}
-	b, err := fn(*model, r)
+	b, err := providers.All[*provider](*model, wrapper)
 	if err != nil {
 		return err
 	}
+	c := b.(genai.ProviderGenAsync)
 
 	var msgs genai.Messages
 	for _, query := range flag.Args() {
@@ -118,7 +119,7 @@ func cmdEnqueue(args []string) error {
 		return errors.New("messages are required")
 	}
 	opts := genai.OptionsText{SystemPrompt: *systemPrompt}
-	job, err := b.GenAsync(ctx, msgs, &opts)
+	job, err := c.GenAsync(ctx, msgs, &opts)
 	if err != nil {
 		return err
 	}
@@ -129,36 +130,40 @@ func cmdEnqueue(args []string) error {
 func cmdGet(args []string) error {
 	ctx, stop := internal.Init()
 	defer stop()
+
+	names := getProviders()
 	verbose := flag.Bool("v", false, "verbose")
 	poll := flag.Bool("poll", false, "poll until the results become available")
-	provider := flag.String("provider", "", "backend to use: "+strings.Join(providerNames, ", "))
+	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
 	flag.CommandLine.Parse(args)
 	if len(flag.Args()) != 1 {
 		return errors.New("pass only one argument: the job id")
 	}
 	job := genai.Job(flag.Args()[0])
-	r := http.DefaultTransport
+	var wrapper func(http.RoundTripper) http.RoundTripper
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
-		r = &roundtrippers.Log{
-			Transport: r,
-			L:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
+		wrapper = func(r http.RoundTripper) http.RoundTripper {
+			return &roundtrippers.Log{
+				Transport: r,
+				L:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
+			}
 		}
 	}
 	if *provider == "" {
 		return errors.New("-provider is required")
 	}
-	fn := providers[*provider]
-	if fn == nil {
-		return fmt.Errorf("unknown backend %q", *provider)
+	if !slices.Contains(names, *provider) {
+		return errors.New("unknown provider")
 	}
-	b, err := fn("", r)
+	b, err := providers.All[*provider]("", wrapper)
 	if err != nil {
 		return err
 	}
+	c := b.(genai.ProviderGenAsync)
 
 	for {
-		res, err := b.PokeResult(ctx, job)
+		res, err := c.PokeResult(ctx, job)
 		if err != nil {
 			return err
 		}
