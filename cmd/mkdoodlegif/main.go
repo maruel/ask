@@ -151,19 +151,19 @@ func run(ctx context.Context, query, filename string) error {
 				fmt.Printf("Unexpected file %q\n", c.Filename)
 				continue
 			}
-			img, err := png.Decode(c.Document)
-			if err != nil {
-				return err
+			img, err2 := png.Decode(c.Document)
+			if err2 != nil {
+				return err2
 			}
 			imgs = append(imgs, img)
 			name := fmt.Sprintf("content%d.png", index)
 			index++
 			fmt.Printf("Creating %s\n", name)
-			f, err := os.Create(name)
-			if err != nil {
-				return err
+			f, err2 := os.Create(name)
+			if err2 != nil {
+				return err2
 			}
-			c.Document.Seek(0, 0)
+			_, _ = c.Document.Seek(0, 0)
 			_, err = io.Copy(f, c.Document)
 			_ = f.Close()
 			if err != nil {

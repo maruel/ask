@@ -102,9 +102,9 @@ func mainImpl() error {
 		defer f.Close()
 		mimeType := mime.TypeByExtension(filepath.Ext(n))
 		if strings.HasPrefix(mimeType, "text/plain") {
-			d, err := io.ReadAll(f)
-			if err != nil {
-				return err
+			d, err2 := io.ReadAll(f)
+			if err2 != nil {
+				return err2
 			}
 			msgs = append(msgs, genai.NewTextMessage(genai.User, string(d)))
 		} else {
@@ -154,9 +154,9 @@ func mainImpl() error {
 		if c.Document != nil {
 			n := c.GetFilename()
 			fmt.Printf("- Writing %s\n", n)
-			d, err := io.ReadAll(c.Document)
-			if err != nil {
-				return err
+			d, err2 := io.ReadAll(c.Document)
+			if err2 != nil {
+				return err2
 			}
 			if err = os.WriteFile(n, d, 0o644); err != nil {
 				return err

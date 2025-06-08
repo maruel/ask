@@ -65,7 +65,7 @@ func cmdEnqueue(args []string) error {
 	systemPrompt := flag.String("sys", "", "system prompt to use")
 	var files stringsFlag
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times")
-	flag.CommandLine.Parse(args)
+	_ = flag.CommandLine.Parse(args)
 	var wrapper func(http.RoundTripper) http.RoundTripper
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
@@ -103,9 +103,9 @@ func cmdEnqueue(args []string) error {
 		defer f.Close()
 		mimeType := mime.TypeByExtension(filepath.Ext(n))
 		if strings.HasPrefix(mimeType, "text/plain") {
-			d, err := io.ReadAll(f)
-			if err != nil {
-				return err
+			d, err2 := io.ReadAll(f)
+			if err2 != nil {
+				return err2
 			}
 			msgs = append(msgs, genai.NewTextMessage(genai.User, string(d)))
 		} else {
@@ -135,7 +135,7 @@ func cmdGet(args []string) error {
 	verbose := flag.Bool("v", false, "verbose")
 	poll := flag.Bool("poll", false, "poll until the results become available")
 	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
-	flag.CommandLine.Parse(args)
+	_ = flag.CommandLine.Parse(args)
 	if len(flag.Args()) != 1 {
 		return errors.New("pass only one argument: the job id")
 	}
