@@ -22,6 +22,7 @@ import (
 
 	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
+	"github.com/maruel/genai/adapters"
 	"github.com/maruel/genai/base"
 	"github.com/maruel/genai/providers"
 	"github.com/maruel/roundtrippers"
@@ -47,8 +48,9 @@ func getProviders() []string {
 		}
 		if _, ok := c.(genai.ProviderGen); ok {
 			names = append(names, name)
+		} else if _, ok := c.(genai.ProviderGenDoc); ok {
+			names = append(names, name)
 		}
-		// We could also test for genai.ProviderGenDocToGen.
 	}
 	sort.Strings(names)
 	return names
@@ -89,7 +91,10 @@ func mainImpl() error {
 	if err != nil {
 		return err
 	}
-	c := b.(genai.ProviderGen)
+	c, ok := b.(genai.ProviderGen)
+	if !ok {
+		c = &adapters.ProviderGenDocToGen{ProviderGenDoc: b.(genai.ProviderGenDoc)}
+	}
 	var msgs genai.Messages
 	for _, query := range flag.Args() {
 		msgs = append(msgs, genai.NewTextMessage(genai.User, query))
@@ -161,6 +166,9 @@ func mainImpl() error {
 			if err = os.WriteFile(n, d, 0o644); err != nil {
 				return err
 			}
+		}
+		if c.URL != "" {
+			fmt.Printf("- Result URL: %s\n", c.URL)
 		}
 	}
 	return err
