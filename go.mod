@@ -4,11 +4,11 @@ go 1.24.1
 
 require (
 	github.com/lmittmann/tint v1.0.7
-	github.com/maruel/genai v0.0.0-20250608173858-3d1c65a4c001
+	github.com/maruel/genai v0.0.0-20250613192507-fab8382420bc
 	github.com/maruel/roundtrippers v0.3.3
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
-	golang.org/x/sync v0.14.0
+	golang.org/x/sync v0.15.0
 )
 
 require (
