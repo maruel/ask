@@ -39,10 +39,10 @@ func (s *stringsFlag) String() string {
 	return strings.Join(([]string)(*s), ", ")
 }
 
-func getProviders() []string {
+func listProviderGen() []string {
 	var names []string
-	for name, f := range providers.All {
-		c, err := f("", nil)
+	for name, f := range providers.Available() {
+		c, err := f(&genai.OptionsProvider{Model: base.NoModel}, nil)
 		if err != nil {
 			continue
 		}
@@ -56,13 +56,45 @@ func getProviders() []string {
 	return names
 }
 
+func loadProviderGen(provider, remote, model string, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGen, error) {
+	f := providers.All[provider]
+	if f == nil {
+		return nil, fmt.Errorf("unknown provider %q", provider)
+	}
+	c, err := f(&genai.OptionsProvider{Model: model, Remote: remote}, wrapper)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
+	}
+	p, ok := c.(genai.ProviderGen)
+	if !ok {
+		c, ok := p.(genai.ProviderGenDoc)
+		if !ok {
+			return nil, fmt.Errorf("provider %q doesn't implement genai.ProviderGen", provider)
+		}
+		p = &adapters.ProviderGenDocToGen{ProviderGenDoc: c}
+	}
+	if s, ok := c.(genai.ProviderScoreboard); ok {
+		id := c.ModelID()
+		for _, sc := range s.Scoreboard().Scenarios {
+			if slices.Contains(sc.Models, id) {
+				if sc.ThinkingTokenStart != "" {
+					p = &adapters.ProviderGenThinking{ProviderGen: p, ThinkingTokenStart: sc.ThinkingTokenStart, ThinkingTokenEnd: sc.ThinkingTokenEnd}
+				}
+				break
+			}
+		}
+	}
+	return p, nil
+}
+
 func mainImpl() error {
 	ctx, stop := internal.Init()
 	defer stop()
 
-	names := getProviders()
+	names := listProviderGen()
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("provider", "gemini", "backend to use: "+strings.Join(names, ", "))
+	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
+	remote := flag.String("remote", "", "URL to use, useful for local backend")
 	model := flag.String("model", "", "model to use, defaults to a cheap model")
 	systemPrompt := flag.String("sys", "", "system prompt to use")
 	var files stringsFlag
@@ -81,19 +113,13 @@ func mainImpl() error {
 	if *provider == "" {
 		return errors.New("-provider is required")
 	}
-	if !slices.Contains(names, *provider) {
-		return errors.New("unknown provider")
-	}
 	if *model == "" {
+		// Default to a cheap model instead of good.
 		*model = base.PreferredCheap
 	}
-	b, err := providers.All[*provider](*model, wrapper)
+	c, err := loadProviderGen(*provider, *remote, *model, wrapper)
 	if err != nil {
 		return err
-	}
-	c, ok := b.(genai.ProviderGen)
-	if !ok {
-		c = &adapters.ProviderGenDocToGen{ProviderGenDoc: b.(genai.ProviderGenDoc)}
 	}
 	var msgs genai.Messages
 	for _, query := range flag.Args() {

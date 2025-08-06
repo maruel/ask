@@ -28,10 +28,10 @@ import (
 	"github.com/maruel/roundtrippers"
 )
 
-func getProviders() []string {
+func listProviderGenAsync() []string {
 	var names []string
-	for name, f := range providers.All {
-		c, err := f("", nil)
+	for name, f := range providers.Available() {
+		c, err := f(&genai.OptionsProvider{Model: base.NoModel}, nil)
 		if err != nil {
 			continue
 		}
@@ -41,6 +41,22 @@ func getProviders() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func loadProviderGenAsync(provider, remote, model string, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGenAsync, error) {
+	f := providers.All[provider]
+	if f == nil {
+		return nil, fmt.Errorf("unknown provider %q", provider)
+	}
+	c, err := f(&genai.OptionsProvider{Model: model, Remote: remote}, wrapper)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
+	}
+	p, ok := c.(genai.ProviderGenAsync)
+	if !ok {
+		return nil, fmt.Errorf("provider %q doesn't implement genai.ProviderGenAsync", provider)
+	}
+	return p, nil
 }
 
 type stringsFlag []string
@@ -58,7 +74,7 @@ func cmdEnqueue(args []string) error {
 	ctx, stop := internal.Init()
 	defer stop()
 
-	names := getProviders()
+	names := listProviderGenAsync()
 	verbose := flag.Bool("v", false, "verbose")
 	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
 	model := flag.String("model", "", "model to use, defaults to a cheap model")
@@ -85,11 +101,10 @@ func cmdEnqueue(args []string) error {
 	if *model == "" {
 		*model = base.PreferredCheap
 	}
-	b, err := providers.All[*provider](*model, wrapper)
+	c, err := loadProviderGenAsync(*provider, "", *model, wrapper)
 	if err != nil {
 		return err
 	}
-	c := b.(genai.ProviderGenAsync)
 
 	var msgs genai.Messages
 	for _, query := range flag.Args() {
@@ -131,7 +146,7 @@ func cmdGet(args []string) error {
 	ctx, stop := internal.Init()
 	defer stop()
 
-	names := getProviders()
+	names := listProviderGenAsync()
 	verbose := flag.Bool("v", false, "verbose")
 	poll := flag.Bool("poll", false, "poll until the results become available")
 	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
@@ -156,7 +171,7 @@ func cmdGet(args []string) error {
 	if !slices.Contains(names, *provider) {
 		return errors.New("unknown provider")
 	}
-	b, err := providers.All[*provider]("", wrapper)
+	b, err := providers.All[*provider](&genai.OptionsProvider{}, wrapper)
 	if err != nil {
 		return err
 	}
