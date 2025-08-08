@@ -95,7 +95,7 @@ func mainImpl() error {
 	verbose := flag.Bool("v", false, "verbose")
 	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
 	remote := flag.String("remote", "", "URL to use, useful for local backend")
-	model := flag.String("model", "", "model to use, defaults to a cheap model")
+	model := flag.String("model", "", "model to use, defaults to a cheap model; use either the model ID or PREFERRED_GOOD and PREFERRED_SOTA to automatically select better models")
 	systemPrompt := flag.String("sys", "", "system prompt to use")
 	var files stringsFlag
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times")
