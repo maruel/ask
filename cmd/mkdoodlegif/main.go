@@ -89,12 +89,13 @@ func run(ctx context.Context, query, filename string) error {
 	}
 	fmt.Printf("Generating prompt...\n")
 	msgs := genai.Messages{genai.NewTextMessage(query)}
-	opts := gemini.OptionsText{
+	opts := gemini.Options{
 		OptionsText: genai.OptionsText{
 			SystemPrompt: systemPrompt,
 			Temperature:  1,
 			Seed:         1,
 		},
+		ResponseModalities: genai.Modalities{genai.ModalityText},
 	}
 	msg, err := runSync(ctx, cBase, msgs, &opts)
 	if err != nil {
@@ -120,16 +121,15 @@ func run(ctx context.Context, query, filename string) error {
 	msgs = genai.Messages{
 		genai.NewTextMessage(contents),
 	}
-	opts = gemini.OptionsText{
-		ResponseModalities: []gemini.Modality{gemini.ModalityText, gemini.ModalityImage},
+	opts = gemini.Options{
 		OptionsText: genai.OptionsText{
 			Temperature: 1,
 			Seed:        1,
 		},
+		ResponseModalities: genai.Modalities{genai.ModalityText, genai.ModalityImage},
 	}
-	// Doesn't support image generation yet?
-	// const model = "gemini-2.5-flash-preview-05-20"
-	cImg, err := gemini.New(&genai.OptionsProvider{Model: "gemini-2.0-flash-preview-image-generation"}, nil)
+	// Doesn't support image generation yet in Canada.
+	cImg, err := gemini.New(&genai.OptionsProvider{Model: "gemini-2.5-flash"}, nil)
 	if err != nil {
 		return err
 	}
