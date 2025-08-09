@@ -88,7 +88,7 @@ func run(ctx context.Context, query, filename string) error {
 		return err
 	}
 	fmt.Printf("Generating prompt...\n")
-	msgs := genai.Messages{genai.NewTextMessage(genai.User, query)}
+	msgs := genai.Messages{genai.NewTextMessage(query)}
 	opts := gemini.OptionsText{
 		OptionsText: genai.OptionsText{
 			SystemPrompt: systemPrompt,
@@ -118,7 +118,7 @@ func run(ctx context.Context, query, filename string) error {
 		**Output:** Actual image files for a smooth, colorful doodle-style GIF on a white background. Make sure every frame is different enough from the previous one.`
 
 	msgs = genai.Messages{
-		genai.NewTextMessage(genai.User, contents),
+		genai.NewTextMessage(contents),
 	}
 	opts = gemini.OptionsText{
 		ResponseModalities: []gemini.Modality{gemini.ModalityText, gemini.ModalityImage},

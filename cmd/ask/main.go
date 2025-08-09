@@ -123,7 +123,7 @@ func mainImpl() error {
 	}
 	var msgs genai.Messages
 	for _, query := range flag.Args() {
-		msgs = append(msgs, genai.NewTextMessage(genai.User, query))
+		msgs = append(msgs, genai.NewTextMessage(query))
 	}
 	for _, n := range files {
 		f, err2 := os.Open(n)
@@ -137,7 +137,7 @@ func mainImpl() error {
 			if err2 != nil {
 				return err2
 			}
-			msgs = append(msgs, genai.NewTextMessage(genai.User, string(d)))
+			msgs = append(msgs, genai.NewTextMessage(string(d)))
 		} else {
 			msgs = append(msgs, genai.Message{
 				Role:     genai.User,
