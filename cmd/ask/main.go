@@ -15,7 +15,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strings"
 	"unicode"
@@ -56,12 +55,12 @@ func listProviderGen() []string {
 	return names
 }
 
-func loadProviderGen(provider, remote, model string, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGen, error) {
+func loadProviderGen(provider string, opts *genai.OptionsProvider, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGen, error) {
 	f := providers.All[provider]
 	if f == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	c, err := f(&genai.OptionsProvider{Model: model, Remote: remote}, wrapper)
+	c, err := f(opts, wrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
@@ -73,17 +72,7 @@ func loadProviderGen(provider, remote, model string, wrapper func(http.RoundTrip
 		}
 		p = &adapters.ProviderGenDocToGen{ProviderGenDoc: c}
 	}
-	if s, ok := c.(genai.ProviderScoreboard); ok {
-		id := c.ModelID()
-		for _, sc := range s.Scoreboard().Scenarios {
-			if slices.Contains(sc.Models, id) {
-				if sc.ThinkingTokenStart != "" {
-					p = &adapters.ProviderGenThinking{ProviderGen: p, ThinkingTokenStart: sc.ThinkingTokenStart, ThinkingTokenEnd: sc.ThinkingTokenEnd}
-				}
-				break
-			}
-		}
-	}
+	p = adapters.WrapThinking(p)
 	return p, nil
 }
 
@@ -104,10 +93,7 @@ func mainImpl() error {
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
 		wrapper = func(r http.RoundTripper) http.RoundTripper {
-			return &roundtrippers.Log{
-				Transport: r,
-				L:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
-			}
+			return &roundtrippers.Log{Transport: r, L: slog.Default()}
 		}
 	}
 	if *provider == "" {
@@ -117,12 +103,8 @@ func mainImpl() error {
 		// Default to a cheap model instead of good.
 		*model = base.PreferredCheap
 	}
-	c, err := loadProviderGen(*provider, *remote, *model, wrapper)
-	if err != nil {
-		return err
-	}
 	var msgs genai.Messages
-	for _, query := range flag.Args() {
+	if query := strings.Join(flag.Args(), " "); query != "" {
 		msgs = append(msgs, genai.NewTextMessage(query))
 	}
 	for _, n := range files {
@@ -146,8 +128,14 @@ func mainImpl() error {
 		}
 	}
 	if len(msgs) == 0 {
-		return errors.New("need a prompt or input files")
+		return errors.New("provide a prompt as an argument or input files")
 	}
+
+	c, err := loadProviderGen(*provider, &genai.OptionsProvider{Model: *model, Remote: *remote}, wrapper)
+	if err != nil {
+		return err
+	}
+	slog.Info("loaded", "provider", c.Name(), "model", c.ModelID())
 	opts := genai.OptionsText{SystemPrompt: *systemPrompt}
 	chunks := make(chan genai.ContentFragment)
 	end := make(chan struct{})
@@ -197,6 +185,7 @@ func mainImpl() error {
 			fmt.Printf("- Result URL: %s\n", c.URL)
 		}
 	}
+	slog.Info("done", "usage", res.Usage)
 	return err
 }
 

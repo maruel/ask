@@ -43,12 +43,12 @@ func listProviderGenAsync() []string {
 	return names
 }
 
-func loadProviderGenAsync(provider, remote, model string, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGenAsync, error) {
+func loadProviderGenAsync(provider string, opts *genai.OptionsProvider, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGenAsync, error) {
 	f := providers.All[provider]
 	if f == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	c, err := f(&genai.OptionsProvider{Model: model, Remote: remote}, wrapper)
+	c, err := f(opts, wrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
@@ -86,28 +86,22 @@ func cmdEnqueue(args []string) error {
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
 		wrapper = func(r http.RoundTripper) http.RoundTripper {
-			return &roundtrippers.Log{
-				Transport: r,
-				L:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
-			}
+			return &roundtrippers.Log{Transport: r, L: slog.Default()}
 		}
 	}
 	if *provider == "" {
 		return errors.New("-provider is required")
 	}
-	if !slices.Contains(names, *provider) {
-		return errors.New("unknown provider")
-	}
 	if *model == "" {
 		*model = base.PreferredCheap
 	}
-	c, err := loadProviderGenAsync(*provider, "", *model, wrapper)
+	c, err := loadProviderGenAsync(*provider, &genai.OptionsProvider{Model: *model}, wrapper)
 	if err != nil {
 		return err
 	}
 
 	var msgs genai.Messages
-	for _, query := range flag.Args() {
+	if query := strings.Join(flag.Args(), " "); query != "" {
 		msgs = append(msgs, genai.NewTextMessage(query))
 	}
 	for _, n := range files {
@@ -131,7 +125,7 @@ func cmdEnqueue(args []string) error {
 		}
 	}
 	if len(msgs) == 0 {
-		return errors.New("messages are required")
+		return errors.New("provide a prompt as an argument or input files")
 	}
 	opts := genai.OptionsText{SystemPrompt: *systemPrompt}
 	job, err := c.GenAsync(ctx, msgs, &opts)
