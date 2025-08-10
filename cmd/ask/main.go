@@ -14,6 +14,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -26,6 +27,10 @@ import (
 	"github.com/maruel/genai/providers"
 	"github.com/maruel/roundtrippers"
 )
+
+type bashArguments struct {
+	CommandLine string `json:"command_line"`
+}
 
 type stringsFlag []string
 
@@ -85,6 +90,7 @@ func mainImpl() error {
 	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
 	remote := flag.String("remote", "", "URL to use, useful for local backend")
 	model := flag.String("model", "", "model to use, defaults to a cheap model; use either the model ID or PREFERRED_GOOD and PREFERRED_SOTA to automatically select better models")
+	noBash := flag.Bool("no-bash", false, "disable bash tool on Ubuntu even if bubblewrap is installed")
 	systemPrompt := flag.String("sys", "", "system prompt to use")
 	var files stringsFlag
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times")
@@ -137,6 +143,30 @@ func mainImpl() error {
 	}
 	slog.Info("loaded", "provider", c.Name(), "model", c.ModelID())
 	opts := genai.OptionsText{SystemPrompt: *systemPrompt}
+
+	// When bubblewrap is installed, use it to run bash.
+	// On Ubuntu, get it with: sudo apt install bubblewrap
+	if !*noBash {
+		if bwrapPath, err := exec.LookPath("bwrap"); err == nil {
+			opts.Tools = append(opts.Tools, genai.ToolDef{
+				Name:        "bash",
+				Description: "Runs the requested command via bash on the computer and returns the output",
+				Callback: func(ctx context.Context, args *bashArguments) (string, error) {
+					v := []string{"--ro-bind", "/", "/", "--tmpfs", "/tmp", "--dev", "/dev", "--proc", "/proc", "--", "bash", "-c", args.CommandLine}
+					cmd := exec.CommandContext(ctx, bwrapPath, v...)
+					// Increases odds of success on non-English installation.
+					cmd.Env = append(os.Environ(), "LANG=C")
+					out, err := cmd.Output()
+					slog.DebugContext(ctx, "bash", "command", args.CommandLine, "output", string(out), "err", err)
+					return string(out), err
+				},
+			})
+			slog.DebugContext(ctx, "bwrap", "path", bwrapPath)
+		} else {
+			slog.DebugContext(ctx, "bwrap", "not found", err)
+		}
+	}
+
 	chunks := make(chan genai.ContentFragment)
 	end := make(chan struct{})
 	go func() {
@@ -166,9 +196,10 @@ func mainImpl() error {
 		}
 		close(end)
 	}()
-	res, err := c.GenStream(ctx, msgs, chunks, &opts)
+	newMsgs, usage, err := adapters.GenStreamWithToolCallLoop(ctx, c, msgs, chunks, &opts)
 	close(chunks)
 	<-end
+	res := newMsgs[len(newMsgs)-1]
 	for _, c := range res.Contents {
 		if c.Document != nil {
 			n := c.GetFilename()
@@ -185,7 +216,7 @@ func mainImpl() error {
 			fmt.Printf("- Result URL: %s\n", c.URL)
 		}
 	}
-	slog.Info("done", "usage", res.Usage)
+	slog.Info("done", "usage", usage)
 	return err
 }
 
