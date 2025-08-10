@@ -87,9 +87,9 @@ func mainImpl() error {
 
 	names := listProviderGen()
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
-	remote := flag.String("remote", "", "URL to use, useful for local backend")
-	model := flag.String("model", "", "model to use, defaults to a cheap model; use either the model ID or PREFERRED_GOOD and PREFERRED_SOTA to automatically select better models")
+	provider := flag.String("provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", ")+"; set default with env var ASK_PROVIDER")
+	remote := flag.String("remote", os.Getenv("ASK_REMOTE"), "URL to use to access the backend, useful for local model; set default with env var ASK_REMOTE")
+	model := flag.String("model", os.Getenv("ASK_MODEL"), "model to use, defaults to a cheap model; use either the model ID or PREFERRED_GOOD and PREFERRED_SOTA to automatically select better models; set default with env var ASK_MODEL")
 	noBash := flag.Bool("no-bash", false, "disable bash tool on Ubuntu even if bubblewrap is installed")
 	systemPrompt := flag.String("sys", "", "system prompt to use")
 	var files stringsFlag
@@ -199,21 +199,23 @@ func mainImpl() error {
 	newMsgs, usage, err := adapters.GenStreamWithToolCallLoop(ctx, c, msgs, chunks, &opts)
 	close(chunks)
 	<-end
-	res := newMsgs[len(newMsgs)-1]
-	for _, c := range res.Contents {
-		if c.Document != nil {
-			n := c.GetFilename()
-			fmt.Printf("- Writing %s\n", n)
-			d, err2 := io.ReadAll(c.Document)
-			if err2 != nil {
-				return err2
+	if len(newMsgs) != 0 {
+		res := newMsgs[len(newMsgs)-1]
+		for _, c := range res.Contents {
+			if c.Document != nil {
+				n := c.GetFilename()
+				fmt.Printf("- Writing %s\n", n)
+				d, err2 := io.ReadAll(c.Document)
+				if err2 != nil {
+					return err2
+				}
+				if err = os.WriteFile(n, d, 0o644); err != nil {
+					return err
+				}
 			}
-			if err = os.WriteFile(n, d, 0o644); err != nil {
-				return err
+			if c.URL != "" {
+				fmt.Printf("- Result URL: %s\n", c.URL)
 			}
-		}
-		if c.URL != "" {
-			fmt.Printf("- Result URL: %s\n", c.URL)
 		}
 	}
 	slog.Info("done", "usage", usage)

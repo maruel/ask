@@ -32,24 +32,51 @@ go install github.com/maruel/ask/cmd/ask@latest
 
 ## Usage
 
+Simple usage. For Groq, make sure `GROQ_API_KEY` is set, get one at
+[console.groq.com/keys](https://console.groq.com/keys). Defaults to a cheap model.
+
 ```bash
 ask -provider groq "Which is the best Canadian city? Be decisive."
 ```
 
-Use the provider's best model:
+Use the provider's best model with the predefined value `PREFERRED_SOTA` and use a system prompt. For Cerebras,
+make sure `CEREBRAS_API_KEY` is set, get one at
+[cloud.cerebras.ai/platform/](https://cloud.cerebras.ai/platform/).
 
 ```bash
-ask -provider cerebras -model PREFERRED_SOTA -sys "You have an holistic knowledge of the world. You reply with the style of William Zinsser and the wit of Dorothy Parker." "Why is the sky blue?"
+ask -provider cerebras -model PREFERRED_SOTA \
+    -sys "You have an holistic knowledge of the world. You reply with the style of William Zinsser and the wit of Dorothy Parker." \
+    "Why is the sky blue?"
 ```
 
-Analyse a file:
+Analyse a file using vision. Use `ASK_PROVIDER` and `ASK_MODEL` environment variables to set default provider
+and models. For Gemini, make sure `GEMINI_API_KEY` is set, get one at
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 
 ```bash
-ask -provider gemini -model gemini-2.5-flash -sys "You are an expert at analysing pictures." -f banana.jpg "What is this? Is it ripe?"
+export ASK_PROVIDER=gemini
+export ASK_MODEL=gemini-2.5-flash
+ask -sys "You are an expert at analysing pictures." -f banana.jpg "What is this? Is it ripe?"
 ```
 
-Leverage `bash` tool using a local model:
+Leverage `bash` tool and enable verbose logging. For Anthropic, make sure `ANTHROPIC_API_KEY` is set, get one
+at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys).
 
 ```bash
-ask -provider llamacpp -remote http://my-server.local:8080 "Can you make a summary of the file named README.md?"
+ask -provider anthropic -v "Can you make a summary of the file named README.md?"
+```
+
+Use a local model using llama.cpp. llama-serve takes cares of downloading the binary and the model. Jan is a
+tool fine tuned version of Qwen 3 4B.
+
+```bash
+# Run on your faster computer with at least 16GB of RAM:
+go install github.com/maruel/genai/cmd/llama-serve@latest
+llama-serve -http 0.0.0.0:8080 -model Menlo/Jan-nano-gguf/jan-nano-4b-Q8_0.gguf -- \
+	--temp 0.7 --top-p 0.8 --top-k 20 --min-p 0 --jinja -fa -c 0 --no-warmup --cache-type-k q8_0 --cache-type-v q8_0
+
+# Access this model from your local network:
+export ASK_PROVIDER=llamacpp
+export ASK_REMOTE=http://my-server.local:8080
+ask "Can you make a summary of the file named README.md?"
 ```
