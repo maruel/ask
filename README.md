@@ -114,3 +114,20 @@ export ASK_PROVIDER=llamacpp
 export ASK_REMOTE=http://my-server.local:8080
 ask "Can you make a summary of the file named README.md?"
 ```
+
+### Local Vision
+
+➡ Use a vision enabled local model using llama.cpp. llama-serve takes cares of downloading the binary and the
+model. It is critical to pass the mmproj file to enable vision. Gemma 3 4B is a Google created model with vision.
+
+```bash
+# Run on your faster computer with at least 16GB of RAM:
+go install github.com/maruel/genai/cmd/llama-serve@latest
+llama-serve -http 0.0.0.0:8080 -model ggml-org/gemma-3-4b-it-GGUF/gemma-3-4b-it-Q8_0.gguf#mmproj-model-f16.gguf -- \
+    --temp 1.0 --top-p 0.95 --top-k 64 --jinja -fa -c 0 --no-warmup
+
+# Access this model from your local network:
+export ASK_PROVIDER=llamacpp
+export ASK_REMOTE=http://my-server.local:8080
+ask -f https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Flag_of_Iceland.svg/330px-Flag_of_Iceland.svg.png "What is this?"
+```

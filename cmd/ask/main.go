@@ -115,12 +115,14 @@ func mainImpl() error {
 		return errors.New("-provider is required")
 	}
 	var msgs genai.Messages
+	// Some models, like Gemma3 on llamacpp, require a strict alternance between user and assistant.
+	userMsg := genai.Message{Role: genai.User}
 	if query := strings.Join(flag.Args(), " "); query != "" {
-		msgs = append(msgs, genai.NewTextMessage(query))
+		userMsg.Contents = append(userMsg.Contents, genai.Content{Text: query})
 	}
 	for _, n := range files {
 		if strings.HasPrefix(n, "http://") || strings.HasPrefix(n, "https://") {
-			msgs = append(msgs, genai.Message{Role: genai.User, Contents: []genai.Content{{URL: n}}})
+			userMsg.Contents = append(userMsg.Contents, genai.Content{URL: n})
 			continue
 		}
 		f, err2 := os.Open(n)
@@ -128,14 +130,12 @@ func mainImpl() error {
 			return err2
 		}
 		defer f.Close()
-		msgs = append(msgs, genai.Message{
-			Role:     genai.User,
-			Contents: []genai.Content{{Document: f, Filename: f.Name()}},
-		})
+		userMsg.Contents = append(userMsg.Contents, genai.Content{Document: f})
 	}
-	if len(msgs) == 0 {
+	if len(userMsg.Contents) == 0 {
 		return errors.New("provide a prompt as an argument or input files")
 	}
+	msgs = append(msgs, userMsg)
 
 	c, err := loadProviderGen(*provider, &genai.OptionsProvider{Model: *model, Remote: *remote}, wrapper)
 	if err != nil {
