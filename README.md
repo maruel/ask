@@ -100,8 +100,8 @@ better solution will be added later.
 
 ### Local
 
-➡ Use a local model using llama.cpp. llama-serve takes cares of downloading the binary and the model. Jan is a
-tool fine tuned version of Qwen 3 4B.
+➡ Use a local model using llama.cpp. [llama-serve](https://github.com/maruel/genai/tree/main/cmd/llama-serve)
+takes cares of downloading the binary and the model. Jan is a tool fine tuned version of Qwen 3 4B.
 
 ```bash
 # Run on your faster computer with at least 16GB of RAM:
@@ -117,8 +117,10 @@ ask "Can you make a summary of the file named README.md?"
 
 ### Local Vision
 
-➡ Use a vision enabled local model using llama.cpp. llama-serve takes cares of downloading the binary and the
-model. It is critical to pass the mmproj file to enable vision. Gemma 3 4B is a Google created model with vision.
+➡ Use a vision enabled local model using llama.cpp.
+[llama-serve](https://github.com/maruel/genai/tree/main/cmd/llama-serve) takes cares of downloading the binary
+and the model files. It is critical to pass the mmproj file to enable vision. Gemma 3 4B is a Google created
+model with vision.
 
 ```bash
 # Run on your faster computer with at least 16GB of RAM:
