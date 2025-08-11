@@ -32,16 +32,15 @@ go install github.com/maruel/ask/cmd/ask@latest
 
 ## Usage
 
-Simple usage. For Groq, make sure `GROQ_API_KEY` is set, get one at
-[console.groq.com/keys](https://console.groq.com/keys). Defaults to a good model.
+Simple usage. Set `GROQ_API_KEY` (get it at
+[console.groq.com/keys](https://console.groq.com/keys)) for Groq. Defaults to a good model.
 
 ```bash
 ask -provider groq "Which is the best Canadian city? Be decisive."
 ```
 
-Use the provider's best model with the predefined value `PREFERRED_SOTA` and use a system prompt. For Cerebras,
-make sure `CEREBRAS_API_KEY` is set, get one at
-[cloud.cerebras.ai/platform/](https://cloud.cerebras.ai/platform/).
+Use the provider's best model with the predefined value `PREFERRED_SOTA` and use a system prompt. Set `CEREBRAS_API_KEY` (get it at
+[cloud.cerebras.ai/platform/](https://cloud.cerebras.ai/platform/)) for Cerebras.
 
 ```bash
 ask -provider cerebras -model PREFERRED_SOTA \
@@ -50,8 +49,8 @@ ask -provider cerebras -model PREFERRED_SOTA \
 ```
 
 Analyse a file using vision. Use `ASK_PROVIDER` and `ASK_MODEL` environment variables to set default provider
-and models. For Gemini, make sure `GEMINI_API_KEY` is set, get one at
-[aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+and models. Set `GEMINI_API_KEY` (get it at
+[aistudio.google.com/apikey](https://aistudio.google.com/apikey)) for Google's Gemini.
 
 ```bash
 export ASK_PROVIDER=gemini
@@ -59,8 +58,8 @@ export ASK_MODEL=gemini-2.5-flash
 ask -sys "You are an expert at analysing pictures." -f banana.jpg "What is this? Is it ripe?"
 ```
 
-Analyse a file from an URL using vision. For OpenAI, make sure `OPENAI_API_KEY` is set, get one at
-[platform.openai.com/settings/organization/api-keys](https://platform.openai.com/settings/organization/api-keys).
+Analyse a file from an URL using vision. Set `OPENAI_API_KEY` (get it at
+[platform.openai.com/settings/organization/api-keys](https://platform.openai.com/settings/organization/api-keys)) for OpenAI.
 
 ```bash
 ask -provider openai \
@@ -69,8 +68,8 @@ ask -provider openai \
     "What is this? Is it ripe?"
 ```
 
-Leverage `bash` tool and enable verbose logging. For Anthropic, make sure `ANTHROPIC_API_KEY` is set, get one
-at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys).
+Leverage `bash` tool and enable verbose logging. Set `ANTHROPIC_API_KEY` (get it at
+[console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)) for Anthropic.
 
 ```bash
 ask -provider anthropic -v "Can you make a summary of the file named README.md?"
