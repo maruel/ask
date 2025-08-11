@@ -11,11 +11,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"mime"
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
@@ -85,15 +83,26 @@ func mainImpl() error {
 	ctx, stop := internal.Init()
 	defer stop()
 
+	flag.Usage = func() {
+		w := flag.CommandLine.Output()
+		fmt.Fprintf(w, "Usage: %s [options] <prompt>\n\n", os.Args[0])
+		flag.PrintDefaults()
+		fmt.Fprintf(w, "\nOn linux when bubblewrap (bwrap) is installed, tool calling is enabled with a read-only file system.\n")
+		fmt.Fprintf(w, "\nEnvironment variables:\n")
+		fmt.Fprintf(w, "  ASK_MODEL:    default value for -model\n")
+		fmt.Fprintf(w, "  ASK_PROVIDER: default value for -provider\n")
+		fmt.Fprintf(w, "  ASK_REMOTE:   default value for -remote\n")
+		fmt.Fprintf(w, "\nUse github.com/maruel/genai/cmd/list-model@latest for a list of available models.\n")
+	}
 	names := listProviderGen()
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", ")+"; set default with env var ASK_PROVIDER")
-	remote := flag.String("remote", os.Getenv("ASK_REMOTE"), "URL to use to access the backend, useful for local model; set default with env var ASK_REMOTE")
-	model := flag.String("model", os.Getenv("ASK_MODEL"), "model to use, defaults to a cheap model; use either the model ID or PREFERRED_GOOD and PREFERRED_SOTA to automatically select better models; set default with env var ASK_MODEL")
+	provider := flag.String("provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", "))
+	remote := flag.String("remote", os.Getenv("ASK_REMOTE"), "URL to use to access the backend, useful for local model")
+	model := flag.String("model", os.Getenv("ASK_MODEL"), "model ID to use, \"PREFERRED_CHEAP\" or \"PREFERRED_SOTA\" to automatically select better models; defaults to a 'good' model")
 	noBash := flag.Bool("no-bash", false, "disable bash tool on Ubuntu even if bubblewrap is installed")
 	systemPrompt := flag.String("sys", "", "system prompt to use")
 	var files stringsFlag
-	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times")
+	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times; can be an URL")
 	flag.Parse()
 	var wrapper func(http.RoundTripper) http.RoundTripper
 	if *verbose {
@@ -105,33 +114,24 @@ func mainImpl() error {
 	if *provider == "" {
 		return errors.New("-provider is required")
 	}
-	if *model == "" {
-		// Default to a cheap model instead of good.
-		*model = base.PreferredCheap
-	}
 	var msgs genai.Messages
 	if query := strings.Join(flag.Args(), " "); query != "" {
 		msgs = append(msgs, genai.NewTextMessage(query))
 	}
 	for _, n := range files {
+		if strings.HasPrefix(n, "http://") || strings.HasPrefix(n, "https://") {
+			msgs = append(msgs, genai.Message{Role: genai.User, Contents: []genai.Content{{URL: n}}})
+			continue
+		}
 		f, err2 := os.Open(n)
 		if err2 != nil {
 			return err2
 		}
 		defer f.Close()
-		mimeType := mime.TypeByExtension(filepath.Ext(n))
-		if strings.HasPrefix(mimeType, "text/plain") {
-			d, err2 := io.ReadAll(f)
-			if err2 != nil {
-				return err2
-			}
-			msgs = append(msgs, genai.NewTextMessage(string(d)))
-		} else {
-			msgs = append(msgs, genai.Message{
-				Role:     genai.User,
-				Contents: []genai.Content{{Document: f, Filename: f.Name()}},
-			})
-		}
+		msgs = append(msgs, genai.Message{
+			Role:     genai.User,
+			Contents: []genai.Content{{Document: f, Filename: f.Name()}},
+		})
 	}
 	if len(msgs) == 0 {
 		return errors.New("provide a prompt as an argument or input files")
@@ -225,7 +225,7 @@ func mainImpl() error {
 func main() {
 	if err := mainImpl(); err != nil {
 		if err != context.Canceled {
-			fmt.Fprintf(os.Stderr, "ask: %s\n", err)
+			fmt.Fprintf(os.Stderr, "%s: %s\n", os.Args[0], err)
 		}
 		os.Exit(1)
 	}

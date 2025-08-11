@@ -33,7 +33,7 @@ go install github.com/maruel/ask/cmd/ask@latest
 ## Usage
 
 Simple usage. For Groq, make sure `GROQ_API_KEY` is set, get one at
-[console.groq.com/keys](https://console.groq.com/keys). Defaults to a cheap model.
+[console.groq.com/keys](https://console.groq.com/keys). Defaults to a good model.
 
 ```bash
 ask -provider groq "Which is the best Canadian city? Be decisive."
@@ -57,6 +57,16 @@ and models. For Gemini, make sure `GEMINI_API_KEY` is set, get one at
 export ASK_PROVIDER=gemini
 export ASK_MODEL=gemini-2.5-flash
 ask -sys "You are an expert at analysing pictures." -f banana.jpg "What is this? Is it ripe?"
+```
+
+Analyse a file from an URL using vision. For OpenAI, make sure `OPENAI_API_KEY` is set, get one at
+[platform.openai.com/settings/organization/api-keys](https://platform.openai.com/settings/organization/api-keys).
+
+```bash
+ask -provider openai \
+    -sys "You are an expert at analysing pictures." \
+    -f https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Banana-Single.jpg/330px-Banana-Single.jpg \
+    "What is this? Is it ripe?"
 ```
 
 Leverage `bash` tool and enable verbose logging. For Anthropic, make sure `ANTHROPIC_API_KEY` is set, get one
