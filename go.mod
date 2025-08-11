@@ -4,7 +4,7 @@ go 1.24.1
 
 require (
 	github.com/lmittmann/tint v1.1.2
-	github.com/maruel/genai v0.0.0-20250811191040-0e1be14747ed
+	github.com/maruel/genai v0.0.0-20250811220235-aed5dc34ed45
 	github.com/maruel/roundtrippers v0.4.2
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
