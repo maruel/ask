@@ -147,7 +147,7 @@ func mainImpl() error {
 	// When bubblewrap is installed, use it to run bash.
 	// On Ubuntu, get it with: sudo apt install bubblewrap
 	if !*noBash {
-		if bwrapPath, err := exec.LookPath("bwrap"); err == nil {
+		if bwrapPath, err2 := exec.LookPath("bwrap"); err2 == nil {
 			opts.Tools = append(opts.Tools, genai.ToolDef{
 				Name:        "bash",
 				Description: "Runs the requested command via bash on the computer and returns the output",
@@ -156,9 +156,9 @@ func mainImpl() error {
 					cmd := exec.CommandContext(ctx, bwrapPath, v...)
 					// Increases odds of success on non-English installation.
 					cmd.Env = append(os.Environ(), "LANG=C")
-					out, err := cmd.Output()
-					slog.DebugContext(ctx, "bash", "command", args.CommandLine, "output", string(out), "err", err)
-					return string(out), err
+					out, err3 := cmd.Output()
+					slog.DebugContext(ctx, "bash", "command", args.CommandLine, "output", string(out), "err", err3)
+					return string(out), err3
 				},
 			})
 			slog.DebugContext(ctx, "bwrap", "path", bwrapPath)
