@@ -32,15 +32,18 @@ go install github.com/maruel/ask/cmd/ask@latest
 
 ## Usage
 
-Simple usage. Set `GROQ_API_KEY` (get it at
-[console.groq.com/keys](https://console.groq.com/keys)) for Groq. Defaults to a good model.
+➡ Simple usage. Defaults to a good model.
+
+💡 Set `GROQ_API_KEY` (get it at [console.groq.com/keys](https://console.groq.com/keys)) for Groq.
 
 ```bash
 ask -provider groq "Which is the best Canadian city? Be decisive."
 ```
 
-Use the provider's best model with the predefined value `PREFERRED_SOTA` and use a system prompt. Set `CEREBRAS_API_KEY` (get it at
-[cloud.cerebras.ai/platform/](https://cloud.cerebras.ai/platform/)) for Cerebras.
+➡ Use the provider's best model with the predefined value `PREFERRED_SOTA` and use a system prompt.
+
+💡 Set `CEREBRAS_API_KEY` (get it at [cloud.cerebras.ai/platform/](https://cloud.cerebras.ai/platform/)) for
+Cerebras.
 
 ```bash
 ask -provider cerebras -model PREFERRED_SOTA \
@@ -48,9 +51,11 @@ ask -provider cerebras -model PREFERRED_SOTA \
     "Why is the sky blue?"
 ```
 
-Analyse a file using vision. Use `ASK_PROVIDER` and `ASK_MODEL` environment variables to set default provider
-and models. Set `GEMINI_API_KEY` (get it at
-[aistudio.google.com/apikey](https://aistudio.google.com/apikey)) for Google's Gemini.
+➡ Analyse a file using vision. Use `ASK_PROVIDER` and `ASK_MODEL` environment variables to set default provider
+and models.
+
+💡 Set `GEMINI_API_KEY` (get it at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)) for
+Google's Gemini.
 
 ```bash
 export ASK_PROVIDER=gemini
@@ -58,8 +63,11 @@ export ASK_MODEL=gemini-2.5-flash
 ask -sys "You are an expert at analysing pictures." -f banana.jpg "What is this? Is it ripe?"
 ```
 
-Analyse a file from an URL using vision. Set `OPENAI_API_KEY` (get it at
-[platform.openai.com/settings/organization/api-keys](https://platform.openai.com/settings/organization/api-keys)) for OpenAI.
+➡ Analyse a file from an URL using vision.
+
+💡 Set `OPENAI_API_KEY` (get it at
+[platform.openai.com/settings/organization/api-keys](https://platform.openai.com/settings/organization/api-keys))
+for OpenAI.
 
 ```bash
 ask -provider openai \
@@ -68,14 +76,16 @@ ask -provider openai \
     "What is this? Is it ripe?"
 ```
 
-Leverage `bash` tool and enable verbose logging. Set `ANTHROPIC_API_KEY` (get it at
+➡ Leverage `bash` tool and enable verbose logging.
+
+💡 Set `ANTHROPIC_API_KEY` (get it at
 [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys)) for Anthropic.
 
 ```bash
 ask -provider anthropic -v "Can you make a summary of the file named README.md?"
 ```
 
-Use a local model using llama.cpp. llama-serve takes cares of downloading the binary and the model. Jan is a
+➡ Use a local model using llama.cpp. llama-serve takes cares of downloading the binary and the model. Jan is a
 tool fine tuned version of Qwen 3 4B.
 
 ```bash
