@@ -42,7 +42,7 @@ func runSync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts ge
 }
 
 func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Options) (genai.Message, error) {
-	chunks := make(chan genai.ContentFragment)
+	chunks := make(chan genai.ReplyFragment)
 	eg := errgroup.Group{}
 	eg.Go(func() error {
 		hasLF := false
@@ -141,19 +141,20 @@ func run(ctx context.Context, query, filename string) error {
 	}
 	var imgs []image.Image
 	index := 0
-	for _, c := range msg.Contents {
-		if c.Text != "" {
-			if strings.TrimSpace(c.Text) != "" {
-				fmt.Printf("%s\n", c.Text)
+	for _, r := range msg.Replies {
+		if r.Text != "" {
+			if strings.TrimSpace(r.Text) != "" {
+				fmt.Printf("%s\n", r.Text)
 			}
-		} else if c.Thinking != "" {
-			fmt.Printf("%s\n", c.Thinking)
-		} else if c.Document != nil {
-			if !strings.HasSuffix(c.Filename, ".png") {
-				fmt.Printf("Unexpected file %q\n", c.Filename)
+		} else if r.Thinking != "" {
+			fmt.Printf("%s\n", r.Thinking)
+		} else if r.Doc.Src != nil {
+			n := r.Doc.GetFilename()
+			if !strings.HasSuffix(n, ".png") {
+				fmt.Printf("Unexpected file %q\n", n)
 				continue
 			}
-			img, err2 := png.Decode(c.Document)
+			img, err2 := png.Decode(r.Doc.Src)
 			if err2 != nil {
 				return err2
 			}
@@ -165,16 +166,16 @@ func run(ctx context.Context, query, filename string) error {
 			if err2 != nil {
 				return err2
 			}
-			_, _ = c.Document.Seek(0, 0)
-			_, err = io.Copy(f, c.Document)
+			_, _ = r.Doc.Src.Seek(0, 0)
+			_, err = io.Copy(f, r.Doc.Src)
 			_ = f.Close()
 			if err != nil {
 				return err
 			}
-		} else if c.URL != "" {
-			fmt.Printf("URL: %s\n", c.URL)
+		} else if r.Doc.URL != "" {
+			fmt.Printf("URL: %s\n", r.Doc.URL)
 		} else {
-			return fmt.Errorf("unexpected content: %+v", c)
+			return fmt.Errorf("unexpected content: %+v", r)
 		}
 	}
 	if len(imgs) == 0 {

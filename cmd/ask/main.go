@@ -116,13 +116,13 @@ func mainImpl() error {
 	}
 	var msgs genai.Messages
 	// Some models, like Gemma3 on llamacpp, require a strict alternance between user and assistant.
-	userMsg := genai.Message{Role: genai.User}
+	userMsg := genai.Message{}
 	if query := strings.Join(flag.Args(), " "); query != "" {
-		userMsg.Contents = append(userMsg.Contents, genai.Content{Text: query})
+		userMsg.Requests = append(userMsg.Requests, genai.Request{Text: query})
 	}
 	for _, n := range files {
 		if strings.HasPrefix(n, "http://") || strings.HasPrefix(n, "https://") {
-			userMsg.Contents = append(userMsg.Contents, genai.Content{URL: n})
+			userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{URL: n}})
 			continue
 		}
 		f, err2 := os.Open(n)
@@ -130,9 +130,9 @@ func mainImpl() error {
 			return err2
 		}
 		defer f.Close()
-		userMsg.Contents = append(userMsg.Contents, genai.Content{Document: f})
+		userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{Src: f}})
 	}
-	if len(userMsg.Contents) == 0 {
+	if len(userMsg.Requests) == 0 {
 		return errors.New("provide a prompt as an argument or input files")
 	}
 	msgs = append(msgs, userMsg)
@@ -167,7 +167,7 @@ func mainImpl() error {
 		}
 	}
 
-	chunks := make(chan genai.ContentFragment)
+	chunks := make(chan genai.ReplyFragment)
 	end := make(chan struct{})
 	go func() {
 		start := true
@@ -201,11 +201,11 @@ func mainImpl() error {
 	<-end
 	if len(newMsgs) != 0 {
 		res := newMsgs[len(newMsgs)-1]
-		for _, c := range res.Contents {
-			if c.Document != nil {
-				n := c.GetFilename()
+		for _, r := range res.Replies {
+			if r.Doc.Src != nil {
+				n := r.Doc.GetFilename()
 				fmt.Printf("- Writing %s\n", n)
-				d, err2 := io.ReadAll(c.Document)
+				d, err2 := io.ReadAll(r.Doc.Src)
 				if err2 != nil {
 					return err2
 				}
@@ -213,8 +213,8 @@ func mainImpl() error {
 					return err
 				}
 			}
-			if c.URL != "" {
-				fmt.Printf("- Result URL: %s\n", c.URL)
+			if r.Doc.URL != "" {
+				fmt.Printf("- Result URL: %s\n", r.Doc.URL)
 			}
 		}
 	}

@@ -118,10 +118,7 @@ func cmdEnqueue(args []string) error {
 			}
 			msgs = append(msgs, genai.NewTextMessage(string(d)))
 		} else {
-			msgs = append(msgs, genai.Message{
-				Role:     genai.User,
-				Contents: []genai.Content{{Document: f, Filename: f.Name()}},
-			})
+			msgs = append(msgs, genai.Message{Requests: []genai.Request{{Doc: genai.Doc{Src: f}}}})
 		}
 	}
 	if len(msgs) == 0 {
@@ -183,11 +180,11 @@ func cmdGet(args []string) error {
 		if s := res.AsText(); len(s) != 0 {
 			fmt.Printf("%s\n", s)
 		}
-		for _, c := range res.Contents {
-			if c.Document != nil {
-				n := c.GetFilename()
+		for _, c := range res.Replies {
+			if c.Doc.Src != nil {
+				n := c.Doc.GetFilename()
 				fmt.Printf("- Writing %s\n", n)
-				d, err := io.ReadAll(c.Document)
+				d, err := io.ReadAll(c.Doc.Src)
 				if err != nil {
 					return err
 				}
