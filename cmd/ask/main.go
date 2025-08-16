@@ -21,7 +21,6 @@ import (
 	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
 	"github.com/maruel/genai/adapters"
-	"github.com/maruel/genai/base"
 	"github.com/maruel/genai/providers"
 	"github.com/maruel/roundtrippers"
 )
@@ -44,7 +43,7 @@ func (s *stringsFlag) String() string {
 func listProviderGen() []string {
 	var names []string
 	for name, f := range providers.Available() {
-		c, err := f(&genai.OptionsProvider{Model: base.NoModel}, nil)
+		c, err := f(&genai.OptionsProvider{Model: genai.ModelNone}, nil)
 		if err != nil {
 			continue
 		}

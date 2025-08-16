@@ -23,7 +23,6 @@ import (
 
 	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
-	"github.com/maruel/genai/base"
 	"github.com/maruel/genai/providers"
 	"github.com/maruel/roundtrippers"
 )
@@ -31,7 +30,7 @@ import (
 func listProviderGenAsync() []string {
 	var names []string
 	for name, f := range providers.Available() {
-		c, err := f(&genai.OptionsProvider{Model: base.NoModel}, nil)
+		c, err := f(&genai.OptionsProvider{Model: genai.ModelNone}, nil)
 		if err != nil {
 			continue
 		}
@@ -93,7 +92,7 @@ func cmdEnqueue(args []string) error {
 		return errors.New("-provider is required")
 	}
 	if *model == "" {
-		*model = base.PreferredCheap
+		*model = genai.ModelCheap
 	}
 	c, err := loadProviderGenAsync(*provider, &genai.OptionsProvider{Model: *model}, wrapper)
 	if err != nil {
