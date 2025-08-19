@@ -172,11 +172,11 @@ func cmdGet(args []string) error {
 		if err != nil {
 			return err
 		}
-		if *poll && res.FinishReason == genai.Pending {
+		if *poll && res.Usage.FinishReason == genai.Pending {
 			time.Sleep(time.Second)
 			continue
 		}
-		if s := res.AsText(); len(s) != 0 {
+		if s := res.String(); len(s) != 0 {
 			fmt.Printf("%s\n", s)
 		}
 		for _, c := range res.Replies {

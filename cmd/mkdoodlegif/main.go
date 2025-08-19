@@ -101,7 +101,7 @@ func run(ctx context.Context, query, filename string) error {
 	if err != nil {
 		return err
 	}
-	processed := msg.AsText()
+	processed := msg.String()
 	fmt.Printf("Prompt is: %s\n", processed)
 	fmt.Printf("Generating images...\n")
 	prompt := `A doodle animation on a white background of ` + processed + `. Subtle motion but nothing else moves.`
