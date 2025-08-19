@@ -43,7 +43,7 @@ func (s *stringsFlag) String() string {
 func listProviderGen() []string {
 	var names []string
 	for name, f := range providers.Available() {
-		c, err := f(&genai.OptionsProvider{Model: genai.ModelNone}, nil)
+		c, err := f(&genai.ProviderOptions{Model: genai.ModelNone}, nil)
 		if err != nil {
 			continue
 		}
@@ -57,7 +57,7 @@ func listProviderGen() []string {
 	return names
 }
 
-func loadProviderGen(provider string, opts *genai.OptionsProvider, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGen, error) {
+func loadProviderGen(provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGen, error) {
 	f := providers.All[provider]
 	if f == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
@@ -136,7 +136,7 @@ func mainImpl() error {
 	}
 	msgs = append(msgs, userMsg)
 
-	c, err := loadProviderGen(*provider, &genai.OptionsProvider{Model: *model, Remote: *remote}, wrapper)
+	c, err := loadProviderGen(*provider, &genai.ProviderOptions{Model: *model, Remote: *remote}, wrapper)
 	if err != nil {
 		return err
 	}

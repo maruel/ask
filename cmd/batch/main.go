@@ -30,7 +30,7 @@ import (
 func listProviderGenAsync() []string {
 	var names []string
 	for name, f := range providers.Available() {
-		c, err := f(&genai.OptionsProvider{Model: genai.ModelNone}, nil)
+		c, err := f(&genai.ProviderOptions{Model: genai.ModelNone}, nil)
 		if err != nil {
 			continue
 		}
@@ -42,7 +42,7 @@ func listProviderGenAsync() []string {
 	return names
 }
 
-func loadProviderGenAsync(provider string, opts *genai.OptionsProvider, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGenAsync, error) {
+func loadProviderGenAsync(provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGenAsync, error) {
 	f := providers.All[provider]
 	if f == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
@@ -94,7 +94,7 @@ func cmdEnqueue(args []string) error {
 	if *model == "" {
 		*model = genai.ModelCheap
 	}
-	c, err := loadProviderGenAsync(*provider, &genai.OptionsProvider{Model: *model}, wrapper)
+	c, err := loadProviderGenAsync(*provider, &genai.ProviderOptions{Model: *model}, wrapper)
 	if err != nil {
 		return err
 	}
@@ -161,7 +161,7 @@ func cmdGet(args []string) error {
 	if !slices.Contains(names, *provider) {
 		return errors.New("unknown provider")
 	}
-	b, err := providers.All[*provider](&genai.OptionsProvider{}, wrapper)
+	b, err := providers.All[*provider](&genai.ProviderOptions{}, wrapper)
 	if err != nil {
 		return err
 	}
