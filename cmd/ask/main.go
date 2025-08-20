@@ -40,14 +40,14 @@ func (s *stringsFlag) String() string {
 	return strings.Join(([]string)(*s), ", ")
 }
 
-func listProviderGen() []string {
+func listProvider() []string {
 	var names []string
 	for name, f := range providers.Available() {
 		c, err := f(&genai.ProviderOptions{Model: genai.ModelNone}, nil)
 		if err != nil {
 			continue
 		}
-		if _, ok := c.(genai.ProviderGen); ok {
+		if _, ok := c.(genai.Provider); ok {
 			names = append(names, name)
 		} else if _, ok := c.(genai.ProviderGenDoc); ok {
 			names = append(names, name)
@@ -57,7 +57,7 @@ func listProviderGen() []string {
 	return names
 }
 
-func loadProviderGen(provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGen, error) {
+func loadProvider(provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.Provider, error) {
 	f := providers.All[provider]
 	if f == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
@@ -66,16 +66,7 @@ func loadProviderGen(provider string, opts *genai.ProviderOptions, wrapper func(
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
-	p, ok := c.(genai.ProviderGen)
-	if !ok {
-		c, ok := p.(genai.ProviderGenDoc)
-		if !ok {
-			return nil, fmt.Errorf("provider %q doesn't implement genai.ProviderGen", provider)
-		}
-		p = &adapters.ProviderGenDocToGen{ProviderGenDoc: c}
-	}
-	p = adapters.WrapThinking(p)
-	return p, nil
+	return adapters.WrapThinking(c), nil
 }
 
 func mainImpl() error {
@@ -93,7 +84,7 @@ func mainImpl() error {
 		fmt.Fprintf(w, "  ASK_REMOTE:   default value for -remote\n")
 		fmt.Fprintf(w, "\nUse github.com/maruel/genai/cmd/list-model@latest for a list of available models.\n")
 	}
-	names := listProviderGen()
+	names := listProvider()
 	verbose := flag.Bool("v", false, "verbose")
 	provider := flag.String("provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", "))
 	remote := flag.String("remote", os.Getenv("ASK_REMOTE"), "URL to use to access the backend, useful for local model")
@@ -136,7 +127,7 @@ func mainImpl() error {
 	}
 	msgs = append(msgs, userMsg)
 
-	c, err := loadProviderGen(*provider, &genai.ProviderOptions{Model: *model, Remote: *remote}, wrapper)
+	c, err := loadProvider(*provider, &genai.ProviderOptions{Model: *model, Remote: *remote}, wrapper)
 	if err != nil {
 		return err
 	}
