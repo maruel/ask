@@ -40,10 +40,10 @@ func (s *stringsFlag) String() string {
 	return strings.Join(([]string)(*s), ", ")
 }
 
-func listProvider() []string {
+func listProvider(ctx context.Context) []string {
 	var names []string
-	for name, f := range providers.Available() {
-		c, err := f(&genai.ProviderOptions{Model: genai.ModelNone}, nil)
+	for name, f := range providers.Available(ctx) {
+		c, err := f(ctx, &genai.ProviderOptions{Model: genai.ModelNone}, nil)
 		if err != nil {
 			continue
 		}
@@ -57,12 +57,12 @@ func listProvider() []string {
 	return names
 }
 
-func loadProvider(provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.Provider, error) {
+func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.Provider, error) {
 	f := providers.All[provider]
 	if f == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	c, err := f(opts, wrapper)
+	c, err := f(ctx, opts, wrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
@@ -84,7 +84,7 @@ func mainImpl() error {
 		fmt.Fprintf(w, "  ASK_REMOTE:   default value for -remote\n")
 		fmt.Fprintf(w, "\nUse github.com/maruel/genai/cmd/list-model@latest for a list of available models.\n")
 	}
-	names := listProvider()
+	names := listProvider(ctx)
 	verbose := flag.Bool("v", false, "verbose")
 	provider := flag.String("provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", "))
 	remote := flag.String("remote", os.Getenv("ASK_REMOTE"), "URL to use to access the backend, useful for local model")
@@ -127,7 +127,7 @@ func mainImpl() error {
 	}
 	msgs = append(msgs, userMsg)
 
-	c, err := loadProvider(*provider, &genai.ProviderOptions{Model: *model, Remote: *remote}, wrapper)
+	c, err := loadProvider(ctx, *provider, &genai.ProviderOptions{Model: *model, Remote: *remote}, wrapper)
 	if err != nil {
 		return err
 	}
