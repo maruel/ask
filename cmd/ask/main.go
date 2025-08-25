@@ -41,10 +41,6 @@ func (s *stringsFlag) String() string {
 	return strings.Join(([]string)(*s), ", ")
 }
 
-func listProvider(ctx context.Context) []string {
-	return slices.Sorted(maps.Keys(providers.Available(ctx)))
-}
-
 func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.Provider, error) {
 	f := providers.All[provider]
 	if f == nil {
@@ -72,7 +68,7 @@ func mainImpl() error {
 		fmt.Fprintf(w, "  ASK_REMOTE:   default value for -remote\n")
 		fmt.Fprintf(w, "\nUse github.com/maruel/genai/cmd/list-model@latest for a list of available models.\n")
 	}
-	names := listProvider(ctx)
+	names := slices.Sorted(maps.Keys(providers.Available(ctx)))
 	verbose := flag.Bool("v", false, "verbose")
 	provider := flag.String("provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", "))
 	remote := flag.String("remote", os.Getenv("ASK_REMOTE"), "URL to use to access the backend, useful for local model")
