@@ -71,7 +71,6 @@ func run(ctx context.Context, query, filename string) error {
 	fmt.Printf("Generating prompt...\n")
 	msgs := genai.Messages{genai.NewTextMessage(query)}
 	opts := []genai.Options{
-		&gemini.Options{ResponseModalities: genai.Modalities{genai.ModalityText}},
 		&genai.OptionsText{
 			SystemPrompt: systemPrompt,
 			Temperature:  1,
@@ -103,9 +102,7 @@ func run(ctx context.Context, query, filename string) error {
 		genai.NewTextMessage(contents),
 	}
 	opts = []genai.Options{
-		&gemini.Options{
-			ResponseModalities: genai.Modalities{genai.ModalityText, genai.ModalityImage},
-		},
+		&gemini.Options{},
 		&genai.OptionsText{
 			Temperature: 1,
 			Seed:        1,
@@ -114,7 +111,11 @@ func run(ctx context.Context, query, filename string) error {
 	// As of 2025-08-10, "gemini-2.5-flash" doesn't support image generation yet in Canada.
 	// "gemini-2.0-flash-image-generation" was removed for a few days but got added back to the model list. But
 	// when I try it, the API replies the model doesn't exist.
-	cImg, err := gemini.New(ctx, &genai.ProviderOptions{Model: "gemini-2.5-flash"}, nil)
+
+	cImg, err := gemini.New(ctx, &genai.ProviderOptions{
+		Model:            "gemini-2.5-flash",
+		OutputModalities: genai.Modalities{genai.ModalityText, genai.ModalityImage},
+	}, nil)
 	if err != nil {
 		return err
 	}
