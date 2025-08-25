@@ -11,10 +11,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
 	"os"
 	"os/exec"
-	"sort"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -41,20 +42,7 @@ func (s *stringsFlag) String() string {
 }
 
 func listProvider(ctx context.Context) []string {
-	var names []string
-	for name, f := range providers.Available(ctx) {
-		c, err := f(ctx, &genai.ProviderOptions{Model: genai.ModelNone}, nil)
-		if err != nil {
-			continue
-		}
-		if _, ok := c.(genai.Provider); ok {
-			names = append(names, name)
-		} else if _, ok := c.(genai.ProviderGenDoc); ok {
-			names = append(names, name)
-		}
-	}
-	sort.Strings(names)
-	return names
+	return slices.Sorted(maps.Keys(providers.Available(ctx)))
 }
 
 func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.Provider, error) {
@@ -157,38 +145,24 @@ func mainImpl() error {
 		}
 	}
 
-	chunks := make(chan genai.ReplyFragment)
-	end := make(chan struct{})
-	go func() {
-		start := true
-		hasLF := false
-		for {
-			select {
-			case <-ctx.Done():
-				goto end
-			case pkt, ok := <-chunks:
-				if !ok {
-					goto end
-				}
-				if start {
-					pkt.TextFragment = strings.TrimLeftFunc(pkt.TextFragment, unicode.IsSpace)
-					start = false
-				}
-				if pkt.TextFragment != "" {
-					hasLF = strings.ContainsRune(pkt.TextFragment, '\n')
-				}
-				_, _ = os.Stdout.WriteString(pkt.TextFragment)
-			}
+	fragments, finish := adapters.GenStreamWithToolCallLoop(ctx, c, msgs, &opts)
+	start := true
+	hasLF := false
+	for f := range fragments {
+		if start {
+			f.TextFragment = strings.TrimLeftFunc(f.TextFragment, unicode.IsSpace)
+			start = false
 		}
-	end:
-		if !hasLF {
-			_, _ = os.Stdout.WriteString("\n")
+		if f.TextFragment != "" {
+			hasLF = strings.ContainsRune(f.TextFragment, '\n')
 		}
-		close(end)
-	}()
-	newMsgs, usage, err := adapters.GenStreamWithToolCallLoop(ctx, c, msgs, chunks, &opts)
-	close(chunks)
-	<-end
+		_, _ = os.Stdout.WriteString(f.TextFragment)
+	}
+	if !hasLF {
+		_, _ = os.Stdout.WriteString("\n")
+	}
+
+	newMsgs, usage, err := finish()
 	if len(newMsgs) != 0 {
 		res := newMsgs[len(newMsgs)-1]
 		for _, r := range res.Replies {

@@ -25,7 +25,6 @@ import (
 	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
 	"github.com/maruel/genai/providers/gemini"
-	"golang.org/x/sync/errgroup"
 )
 
 const systemPrompt = `**Generate simple, animated doodle GIFs on white from user input, prioritizing key visual identifiers in an animated doodle style with ethical considerations.**
@@ -36,50 +35,32 @@ const systemPrompt = `**Generate simple, animated doodle GIFs on white from user
 **Key Constraints:** No racial labels. Neutral skin tone descriptors when included. Cartoonish/doodle style always implied, especially for people. One text display method only.
 `
 
-func runSync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Options) (genai.Message, error) {
-	resp, err := c.GenSync(ctx, msgs, opts)
-	return resp.Message, err
+func runSync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts ...genai.Options) (genai.Message, error) {
+	res, err := c.GenSync(ctx, msgs, opts...)
+	return res.Message, err
 }
 
-func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts genai.Options) (genai.Message, error) {
-	chunks := make(chan genai.ReplyFragment)
-	eg := errgroup.Group{}
-	eg.Go(func() error {
-		hasLF := false
-		start := true
-		defer func() {
-			if !hasLF {
-				_, _ = os.Stdout.WriteString("\n")
-			}
-		}()
-		for {
-			select {
-			case <-ctx.Done():
-				return nil
-			case pkt, ok := <-chunks:
-				if !ok {
-					return nil
-				}
-				if start {
-					pkt.TextFragment = strings.TrimLeftFunc(pkt.TextFragment, unicode.IsSpace)
-					start = false
-				}
-				if pkt.TextFragment != "" {
-					hasLF = strings.ContainsRune(pkt.TextFragment, '\n')
-				} else if pkt.Filename != "" {
-					fmt.Printf("Got %s..\n", pkt.Filename)
-				}
-				_, _ = os.Stdout.WriteString(pkt.TextFragment)
-			}
+func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts ...genai.Options) (genai.Message, error) {
+	fragments, finish := c.GenStream(ctx, msgs, opts...)
+	hasLF := false
+	start := true
+	for f := range fragments {
+		if start {
+			f.TextFragment = strings.TrimLeftFunc(f.TextFragment, unicode.IsSpace)
+			start = false
 		}
-	})
-
-	resp, err2 := c.GenStream(ctx, msgs, chunks, opts)
-	close(chunks)
-	if err3 := eg.Wait(); err2 == nil {
-		err2 = err3
+		if f.TextFragment != "" {
+			hasLF = strings.ContainsRune(f.TextFragment, '\n')
+		} else if f.Filename != "" {
+			fmt.Printf("Got %s..\n", f.Filename)
+		}
+		_, _ = os.Stdout.WriteString(f.TextFragment)
 	}
-	return resp.Message, err2
+	if !hasLF {
+		_, _ = os.Stdout.WriteString("\n")
+	}
+	res, err := finish()
+	return res.Message, err
 }
 
 func run(ctx context.Context, query, filename string) error {
@@ -89,15 +70,15 @@ func run(ctx context.Context, query, filename string) error {
 	}
 	fmt.Printf("Generating prompt...\n")
 	msgs := genai.Messages{genai.NewTextMessage(query)}
-	opts := gemini.Options{
-		OptionsText: genai.OptionsText{
+	opts := []genai.Options{
+		&gemini.Options{ResponseModalities: genai.Modalities{genai.ModalityText}},
+		&genai.OptionsText{
 			SystemPrompt: systemPrompt,
 			Temperature:  1,
 			Seed:         1,
 		},
-		ResponseModalities: genai.Modalities{genai.ModalityText},
 	}
-	msg, err := runSync(ctx, cBase, msgs, &opts)
+	msg, err := runSync(ctx, cBase, msgs, opts...)
 	if err != nil {
 		return err
 	}
@@ -121,12 +102,14 @@ func run(ctx context.Context, query, filename string) error {
 	msgs = genai.Messages{
 		genai.NewTextMessage(contents),
 	}
-	opts = gemini.Options{
-		OptionsText: genai.OptionsText{
+	opts = []genai.Options{
+		&gemini.Options{
+			ResponseModalities: genai.Modalities{genai.ModalityText, genai.ModalityImage},
+		},
+		&genai.OptionsText{
 			Temperature: 1,
 			Seed:        1,
 		},
-		ResponseModalities: genai.Modalities{genai.ModalityText, genai.ModalityImage},
 	}
 	// As of 2025-08-10, "gemini-2.5-flash" doesn't support image generation yet in Canada.
 	// "gemini-2.0-flash-image-generation" was removed for a few days but got added back to the model list. But
@@ -135,7 +118,7 @@ func run(ctx context.Context, query, filename string) error {
 	if err != nil {
 		return err
 	}
-	msg, err = runAsync(ctx, cImg, msgs, &opts)
+	msg, err = runAsync(ctx, cImg, msgs, opts...)
 	if err != nil {
 		return err
 	}

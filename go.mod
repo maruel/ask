@@ -4,11 +4,10 @@ go 1.24.1
 
 require (
 	github.com/lmittmann/tint v1.1.2
-	github.com/maruel/genai v0.0.0-20250823011438-1d738cdaca8d
+	github.com/maruel/genai v0.0.0-20250825021805-51fc9d890f6e
 	github.com/maruel/roundtrippers v0.4.2
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
-	golang.org/x/sync v0.16.0
 )
 
 require (
@@ -21,6 +20,7 @@ require (
 	github.com/mailru/easyjson v0.9.0 // indirect
 	github.com/maruel/httpjson v0.5.0 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
+	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
 	gopkg.in/dnaeon/go-vcr.v4 v4.0.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
