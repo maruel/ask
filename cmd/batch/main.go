@@ -85,7 +85,7 @@ func cmdEnqueue(args []string) error {
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
 		wrapper = func(r http.RoundTripper) http.RoundTripper {
-			return &roundtrippers.Log{Transport: r, L: slog.Default()}
+			return &roundtrippers.Log{Transport: r, Logger: slog.Default()}
 		}
 	}
 	if *provider == "" {
@@ -151,7 +151,7 @@ func cmdGet(args []string) error {
 		wrapper = func(r http.RoundTripper) http.RoundTripper {
 			return &roundtrippers.Log{
 				Transport: r,
-				L:         slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
+				Logger:    slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})),
 			}
 		}
 	}

@@ -82,7 +82,7 @@ func mainImpl() error {
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
 		wrapper = func(r http.RoundTripper) http.RoundTripper {
-			return &roundtrippers.Log{Transport: r, L: slog.Default()}
+			return &roundtrippers.Log{Transport: r, Logger: slog.Default()}
 		}
 	}
 	if *provider == "" {
