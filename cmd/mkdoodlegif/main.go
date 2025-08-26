@@ -106,13 +106,10 @@ func run(ctx context.Context, query, filename string) error {
 			Temperature: 1,
 			Seed:        1,
 		},
+		&gemini.Options{ThinkingBudget: 0},
 	}
-	// As of 2025-08-10, "gemini-2.5-flash" doesn't support image generation yet in Canada.
-	// "gemini-2.0-flash-image-generation" was removed for a few days but got added back to the model list. But
-	// when I try it, the API replies the model doesn't exist.
-
 	cImg, err := gemini.New(ctx, &genai.ProviderOptions{
-		Model:            "gemini-2.0-flash-preview-image-generation",
+		Model:            "gemini-2.5-flash-image-preview",
 		OutputModalities: genai.Modalities{genai.ModalityText, genai.ModalityImage},
 	}, nil)
 	if err != nil {
