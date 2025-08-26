@@ -102,7 +102,6 @@ func run(ctx context.Context, query, filename string) error {
 		genai.NewTextMessage(contents),
 	}
 	opts = []genai.Options{
-		&gemini.Options{},
 		&genai.OptionsText{
 			Temperature: 1,
 			Seed:        1,
@@ -113,7 +112,7 @@ func run(ctx context.Context, query, filename string) error {
 	// when I try it, the API replies the model doesn't exist.
 
 	cImg, err := gemini.New(ctx, &genai.ProviderOptions{
-		Model:            "gemini-2.5-flash",
+		Model:            "gemini-2.0-flash-preview-image-generation",
 		OutputModalities: genai.Modalities{genai.ModalityText, genai.ModalityImage},
 	}, nil)
 	if err != nil {
