@@ -62,18 +62,19 @@ func AskMainImpl() error {
 		flag.PrintDefaults()
 		fmt.Fprintf(w, "\nOn linux when bubblewrap (bwrap) is installed, tool calling is enabled with a read-only file system.\n")
 		fmt.Fprintf(w, "\nEnvironment variables:\n")
-		fmt.Fprintf(w, "  ASK_MODEL:    default value for -model\n")
-		fmt.Fprintf(w, "  ASK_PROVIDER: default value for -provider\n")
-		fmt.Fprintf(w, "  ASK_REMOTE:   default value for -remote\n")
+		fmt.Fprintf(w, "  ASK_MODEL:         default value for -model\n")
+		fmt.Fprintf(w, "  ASK_PROVIDER:      default value for -provider\n")
+		fmt.Fprintf(w, "  ASK_REMOTE:        default value for -remote\n")
+		fmt.Fprintf(w, "  ASK_SYSTEM_PROMPT: default value for -sys\n")
 		fmt.Fprintf(w, "\nUse github.com/maruel/genai/cmd/list-model@latest for a list of available models.\n")
 	}
 	names := slices.Sorted(maps.Keys(providers.Available(ctx)))
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("p", os.Getenv("ASK_PROVIDER"), "(alias for -provider)")
-	flag.StringVar(provider, "provider", "", "backend to use: "+strings.Join(names, ", "))
+	provider := flag.String("p", "", "(alias for -provider)")
+	flag.StringVar(provider, "provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", "))
 
-	remote := flag.String("r", os.Getenv("ASK_REMOTE"), "(alias for -remote)")
-	flag.StringVar(remote, "remote", "", "URL to use to access the backend, useful for local model")
+	remote := flag.String("r", "", "(alias for -remote)")
+	flag.StringVar(remote, "remote", os.Getenv("ASK_REMOTE"), "URL to use to access the backend, useful for local model")
 
 	modelHelp := fmt.Sprintf("model ID to use, %q or %q to automatically select worse/better models; defaults to a %q model",
 		genai.ModelCheap, genai.ModelSOTA, genai.ModelGood)
@@ -84,7 +85,7 @@ func AskMainImpl() error {
 	mod := flag.String("modality", "", modHelp)
 
 	useBash := flag.Bool("bash", false, "enable bash tool; requires bubblewrap to mount a read-only file system")
-	systemPrompt := flag.String("sys", "", "system prompt to use")
+	systemPrompt := flag.String("sys", os.Getenv("ASK_SYSTEM_PROMPT"), "system prompt to use")
 	var files stringsFlag
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times; can be an URL")
 	flag.Parse()

@@ -13,33 +13,40 @@ Extremely lightweight yet powerful AI tool.
 ## TL;DR:
 
 Read a local file and summarizes its content. 💡 Set
-[`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys))
+[`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
 
 ```bash
 ask -p anthropic -bash \
-    "Can you make a summary of the file named README.md?"
+    "Make a one line summary of the file named README.md. Reply with only the summary."
 ```
 
+> A lightweight AI tool that supports multiple providers, file analysis (images, PDF, audio, video), content
+> generation, and includes tools like websearch and bash access on Linux.
 
-Generate a picture. 💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settings/api-keys)
+
+Generate a picture. 💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settings/api-keys).
 
 ```bash
 ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free \
     "Picture of a dog"
 ```
 
+> - Result URL: https://api.together.ai/shrt/ABCD
+
+![dog.jpg](https://raw.githubusercontent.com/wiki/maruel/ask/dog.jpg)
+
 
 Generate a video starting from the image generated above. 💡 Set
-[`GEMINI_API_KEY`](https://aistudio.google.com/apikey))
+[`GEMINI_API_KEY`](https://aistudio.google.com/apikey).
 
 ```bash
 ask -p gemini -m veo-3.0-fast-generate-preview \
-    -f content.jpg \
+    -f dog.jpg \
     "Carton dog playing with a ball on the beach"
 ```
 
 
-Have Go install the tool while running it. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys)
+Have Go install the tool while running it. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys).
 
 ```bash
 go run github.com/maruel/ask@latest \
@@ -50,13 +57,13 @@ go run github.com/maruel/ask@latest \
 
 ## Installation
 
-Install [Go](https://go.dev/dl) and run:
+Install [Go](https://go.dev/dl), then run:
 
 ```bash
 go install github.com/maruel/ask/cmd/...@latest
 ```
 
-If you'd like to have binary releases, please open an issue.
+➕ If you'd like to have binary releases, please open an issue.
 
 
 ## Usage
@@ -64,7 +71,7 @@ If you'd like to have binary releases, please open an issue.
 
 ### Simple
 
-➡ Simple usage. Defaults to a good model. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys)
+➡ Simple usage. Defaults to a good model. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys).
 
 ```bash
 ask -provider groq "Which is the best Canadian city? Be decisive."
@@ -74,7 +81,7 @@ ask -provider groq "Which is the best Canadian city? Be decisive."
 ### Best model
 
 ➡ Use the provider's best model with the predefined value `SOTA` and use a system prompt. 💡 Set
-[`CEREBRAS_API_KEY`](https://cloud.cerebras.ai/platform/))
+[`CEREBRAS_API_KEY`](https://cloud.cerebras.ai/platform/).
 
 ```bash
 ask -p cerebras -model SOTA \
@@ -85,7 +92,7 @@ ask -p cerebras -model SOTA \
 
 ### Vision
 
-➡ Analyse a picture using vision. 💡 Set [`MISTRAL_API_KEY`](https://console.mistral.ai/api-keys)
+➡ Analyse a picture using vision. 💡 Set [`MISTRAL_API_KEY`](https://console.mistral.ai/api-keys).
 
 ```bash
 ask -p mistral -m mistral-small-latest \
@@ -97,7 +104,7 @@ ask -p mistral -m mistral-small-latest \
 
 ### Image generation
 
-➡ Generate an image for free. 💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settings/api-keys)
+➡ Generate an image for free. 💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settings/api-keys).
 
 ```bash
 ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free \
@@ -108,7 +115,7 @@ ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free \
 ### File by URL
 
 ➡ Analyse a file from an URL using vision. 💡 Set
-[`OPENAI_API_KEY`](https://platform.openai.com/settings/organization/api-keys)
+[`OPENAI_API_KEY`](https://platform.openai.com/settings/organization/api-keys).
 
 ```bash
 ask -p openai \
@@ -121,7 +128,7 @@ ask -p openai \
 ### Bash
 
 ➡ Leverage `bash` tool to enable the model to read local files and enable verbose logging. Only available on
-Linux. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys)
+Linux. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
 
 ```bash
 ask -p anthropic -bash -v \
@@ -134,11 +141,12 @@ better solution will be added later.
 
 ## Environment variables
 
-➡ Set `ASK_PROVIDER`, `ASK_MODEL` to set default values.
+➡ Set `ASK_PROVIDER`, `ASK_MODEL`, `ASK_SYSTEM_PROMPT` to set default values.
 
 ```bash
 export ASK_PROVIDER=gemini
 export ASK_MODEL=gemini-2.5-flash
+export ASK_SYSTEM_PROMPT="You are an expert at software engineering."
 ask "Is open source software a good idea?"
 ```
 
