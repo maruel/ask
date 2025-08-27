@@ -42,13 +42,6 @@ jobs:
           go-version-file: go.mod
       - name: Get dependencies
         run: go mod download
-      - name: Find executables in cmd/
-        id: find-executables
-        run: |
-          executables=$(find cmd -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
-          echo "executables<<EOF" >> $GITHUB_OUTPUT
-          echo "$executables" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
       - name: Build executables
         env:
           GOOS: ${{ matrix.goos }}
@@ -56,16 +49,17 @@ jobs:
           CGO_ENABLED: 0
         run: |
           mkdir -p build/${{ matrix.goos }}-${{ matrix.goarch }}
+          executables=$(find cmd -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
           while IFS= read -r executable; do
             if [ -n "$executable" ]; then
               echo "Building $executable for ${{ matrix.goos }}/${{ matrix.goarch }}"
               go build -ldflags="-s -w" -o build/${{ matrix.goos }}-${{ matrix.goarch }}/${executable}${{ matrix.suffix }} ./cmd/$executable
             fi
-          done <<< "${{ steps.find-executables.outputs.executables }}"
+          done <<< "$executables"
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: ask-${{ matrix.goos }}-${{ matrix.goarch }}
           path: build/${{ matrix.goos }}-${{ matrix.goarch }}/
           retention-days: 5
 
@@ -88,16 +82,22 @@ jobs:
         run: |
           mkdir -p release
           cd artifacts
-          for dir in binaries-*; do
-            platform=$(echo $dir | sed 's/binaries-//')
+          for dir in ask-*; do
+            platform=$(echo $dir | sed 's/ask-//')
             cd "$dir"
-            tar -czf "../../release/binaries-${platform}.tar.gz" *
+            if [[ "$platform" == windows* ]]; then
+              zip -r "../../release/ask-${platform}.zip" *
+            else
+              tar -czf "../../release/ask-${platform}.tar.gz" *
+            fi
             cd ..
           done
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release/*.tar.gz
+          files: |
+            release/*.tar.gz
+            release/*.zip
           draft: ${{!startsWith(github.ref , 'refs/tags/v')}}
           prerelease: ${{!startsWith(github.ref , 'refs/tags/v')}}
           generate_release_notes: true
