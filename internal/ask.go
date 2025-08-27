@@ -10,11 +10,13 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"iter"
 	"log/slog"
 	"maps"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"unicode"
@@ -135,32 +137,49 @@ func AskMainImpl() error {
 		return err
 	}
 	slog.Info("loaded", "provider", c.Name(), "model", c.ModelID())
-	opts := genai.OptionsText{SystemPrompt: *systemPrompt}
+	var opts []genai.Options
+	if *systemPrompt != "" {
+		opts = append(opts, &genai.OptionsText{SystemPrompt: *systemPrompt})
+	}
 
+	useTools := false
 	// When bubblewrap is installed, use it to run bash.
 	// On Ubuntu, get it with: sudo apt install bubblewrap
 	if *useBash {
 		if bwrapPath, err2 := exec.LookPath("bwrap"); err2 == nil {
-			opts.Tools = append(opts.Tools, genai.ToolDef{
-				Name:        "bash",
-				Description: "Runs the requested command via bash on the computer and returns the output",
-				Callback: func(ctx context.Context, args *bashArguments) (string, error) {
-					v := []string{"--ro-bind", "/", "/", "--tmpfs", "/tmp", "--dev", "/dev", "--proc", "/proc", "--", "bash", "-c", args.CommandLine}
-					cmd := exec.CommandContext(ctx, bwrapPath, v...)
-					// Increases odds of success on non-English installation.
-					cmd.Env = append(os.Environ(), "LANG=C")
-					out, err3 := cmd.Output()
-					slog.DebugContext(ctx, "bash", "command", args.CommandLine, "output", string(out), "err", err3)
-					return string(out), err3
+			useTools = true
+			o := &genai.OptionsText{
+				Tools: []genai.ToolDef{
+					{
+						Name:        "bash",
+						Description: "Runs the requested command via bash on the computer and returns the output",
+						Callback: func(ctx context.Context, args *bashArguments) (string, error) {
+							v := []string{"--ro-bind", "/", "/", "--tmpfs", "/tmp", "--dev", "/dev", "--proc", "/proc", "--", "bash", "-c", args.CommandLine}
+							cmd := exec.CommandContext(ctx, bwrapPath, v...)
+							// Increases odds of success on non-English installation.
+							cmd.Env = append(os.Environ(), "LANG=C")
+							out, err3 := cmd.Output()
+							slog.DebugContext(ctx, "bash", "command", args.CommandLine, "output", string(out), "err", err3)
+							return string(out), err3
+						},
+					},
 				},
-			})
+			}
+			opts = append(opts, o)
 			slog.DebugContext(ctx, "bwrap", "path", bwrapPath)
 		} else {
 			slog.DebugContext(ctx, "bwrap", "not found", err)
 		}
 	}
 
-	fragments, finish := adapters.GenStreamWithToolCallLoop(ctx, c, msgs, &opts)
+	var fragments iter.Seq[genai.ReplyFragment]
+	var finishTools func() (genai.Messages, genai.Usage, error)
+	var finishStream func() (genai.Result, error)
+	if useTools {
+		fragments, finishTools = adapters.GenStreamWithToolCallLoop(ctx, c, msgs, opts...)
+	} else {
+		fragments, finishStream = c.GenStream(ctx, msgs, opts...)
+	}
 	start := true
 	hasLF := false
 	for f := range fragments {
@@ -177,26 +196,73 @@ func AskMainImpl() error {
 		_, _ = os.Stdout.WriteString("\n")
 	}
 
-	newMsgs, usage, err := finish()
-	if len(newMsgs) != 0 {
-		res := newMsgs[len(newMsgs)-1]
-		for _, r := range res.Replies {
-			if r.Doc.Src != nil {
-				n := r.Doc.GetFilename()
-				fmt.Printf("- Writing %s\n", n)
-				d, err2 := io.ReadAll(r.Doc.Src)
-				if err2 != nil {
-					return err2
-				}
-				if err = os.WriteFile(n, d, 0o644); err != nil {
-					return err
-				}
+	msg := genai.Message{}
+	var usage genai.Usage
+	if finishTools != nil {
+		msgs, usage, err = finishTools()
+		if len(msgs) != 0 {
+			msg = msgs[len(msgs)-1]
+		}
+	} else {
+		res := genai.Result{}
+		res, err = finishStream()
+		msg = res.Message
+		usage = res.Usage
+	}
+	// Still process the files even if there was an error.
+	for _, r := range msg.Replies {
+		if r.Doc.IsZero() {
+			continue
+		}
+		n, err2 := findAvailable(r.Doc.GetFilename())
+		if err2 != nil {
+			return err2
+		}
+		fmt.Printf("- Writing %s\n", n)
+
+		// The image can be returned as an URL or inline, depending on the provider. Always save it since it won't
+		// be available for long.
+		var src io.Reader
+		if r.Doc.URL != "" {
+			req, err2 := c.HTTPClient().Get(r.Doc.URL)
+			if err2 != nil {
+				return err2
+			} else if req.StatusCode != http.StatusOK {
+				return fmt.Errorf("got status code %d while retrieving %s", req.StatusCode, r.Doc.URL)
 			}
-			if r.Doc.URL != "" {
-				fmt.Printf("- Result URL: %s\n", r.Doc.URL)
-			}
+			src = req.Body
+			defer req.Body.Close()
+		} else {
+			src = r.Doc.Src
+		}
+		b, err2 := io.ReadAll(src)
+		if err2 != nil {
+			return err2
+		}
+		if err2 = os.WriteFile(n, b, 0o644); err2 != nil {
+			return err2
 		}
 	}
 	slog.Info("done", "usage", usage)
 	return err
+}
+
+// findAvailable checks if a file with the given name exists, and if so, append an index number.
+//
+// TODO: O(n²); I'd fail the interview.
+func findAvailable(filename string) (string, error) {
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return filename, nil
+	}
+	dir := filepath.Dir(filename)
+	base := filepath.Base(filename)
+	ext := filepath.Ext(base)
+	name := base[:len(base)-len(ext)]
+	for i := 1; ; i++ {
+		newName := fmt.Sprintf("%s_%d%s", name, i, ext)
+		newPath := filepath.Join(dir, newName)
+		if _, err := os.Stat(newPath); os.IsNotExist(err) {
+			return newPath, nil
+		}
+	}
 }

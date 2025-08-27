@@ -28,10 +28,10 @@ Generate a picture. 💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settin
 
 ```bash
 ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free \
-    "Picture of a dog"
+    "Cartoon of a dog on the beach"
 ```
 
-> - Result URL: https://api.together.ai/shrt/ABCD
+> - Writing content.jpg
 
 ![dog.jpg](https://raw.githubusercontent.com/wiki/maruel/ask/dog.jpg)
 
@@ -41,9 +41,15 @@ Generate a video starting from the image generated above. 💡 Set
 
 ```bash
 ask -p gemini -m veo-3.0-fast-generate-preview \
-    -f dog.jpg \
-    "Carton dog playing with a ball on the beach"
+    -f content.jpg \
+    "Dog playing on the beach with fishes jumping out of the water"
 ```
+
+> - Writing content.mp4
+
+![dog.avif](https://raw.githubusercontent.com/wiki/maruel/ask/dog.avif)
+
+🎬️ See the video with sound: [dog.mp4](https://raw.githubusercontent.com/wiki/maruel/ask/dog.mp4)
 
 
 Have Go install the tool while running it. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys).
