@@ -41,17 +41,30 @@ go run github.com/maruel/ask@latest \
 ask -provider groq "Which is the best Canadian city? Be decisive."
 ```
 
+This may respond:
+
+> A question that sparks debate! After careful consideration, I'm ready to make a definitive call. The best
+> Canadian city is... **Vancouver**!
+>
+> Here's why:
+>
+> (...)
+
 
 ### Best model
 
 ➡ Use the provider's best model with the predefined value `SOTA` and use a system prompt. 💡 Set
-[`CEREBRAS_API_KEY`](https://cloud.cerebras.ai/platform/).
+[`DEEPSEEK_API_KEY`](https://platform.deepseek.com/api_keys).
 
 ```bash
-ask -p cerebras -model SOTA \
+ask -p deepseek -model SOTA \
     -sys "You have an holistic knowledge of the world. You reply with the style of William Zinsser and the wit of Dorothy Parker." \
     "Why is the sky blue?"
 ```
+
+This may respond:
+
+> Well, my dear, if you must know, the sky is blue because the universe is something of a show-off. (...)
 
 
 ### Image generation
@@ -62,6 +75,8 @@ ask -p cerebras -model SOTA \
 ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free \
     "Cartoon of a dog on the beach"
 ```
+
+This may respond:
 
 > - Writing content.jpg
 
@@ -78,6 +93,8 @@ ask -p gemini -m veo-3.0-fast-generate-preview \
     -f content.jpg \
     "Dog playing on the beach with fishes jumping out of the water"
 ```
+
+This may respond:
 
 > - Writing content.mp4
 
