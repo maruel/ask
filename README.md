@@ -1,36 +1,61 @@
 # ask
 
-Extremely lightweight Go application to query a LLM API.
+Extremely lightweight AI tool.
 
-- Supports using input files for content analysis, e.g. images, PDF, audio, videos, etc.
-- Supports all providers supported by [github.com/maruel/genai](https://github.com/maruel/genai)
-    - Anthropic
-    - Cerebras
-    - Cloudflare Workers AI
-    - Cohere
-    - DeepSeek
-    - Google's Gemini
-    - Groq
-    - HuggingFace
-    - llama.cpp
-    - Mistral
-    - Ollama
-    - OpenAI
-    - Perplexity
-    - Pollinations
-    - TogetherAI
+- Content analysis, e.g. images, PDF, audio, videos, etc.
+- Generation: image, videos.
 
-On linux with bubblewrap (`bwrap`) installed, a `bash` tool mounting the file system as read-only is provided.
+## TL;DR:
+
+Read a local file and summarizes its content:
+
+```bash
+ask -p cerebras -bash "Can you make a summary of the file named README.md?"
+```
+
+Generate a picture:
+
+```bash
+ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free "Picture of a dog"
+```
+
+Have Go install the tool while running it:
+
+```bash
+go run github.com/maruel/ask@latest -p groq "Give an advice that sounds good but is bad in practice"
+```
+
+Supports all providers supported by [github.com/maruel/genai](https://github.com/maruel/genai):
+- Anthropic
+- Cerebras
+- Cloudflare Workers AI
+- Cohere
+- DeepSeek
+- Google's Gemini
+- Groq
+- HuggingFace
+- llama.cpp
+- Mistral
+- Ollama
+- OpenAI
+- Perplexity
+- Pollinations
+- TogetherAI
+
+🦸 On linux with bubblewrap (`bwrap`) installed, a `bash` tool mounting the file system as read-only is
+provided.
+
 
 ## Installation
 
 Install [Go](https://go.dev/dl) and run:
 
 ```bash
-go install github.com/maruel/ask/cmd/ask@latest
+go install github.com/maruel/ask/cmd/...@latest
 ```
 
 ## Usage
+
 
 ### Simple
 
@@ -42,18 +67,20 @@ ask -provider groq "Which is the best Canadian city? Be decisive."
 
 💡 Set `GROQ_API_KEY` (get it at [console.groq.com/keys](https://console.groq.com/keys)) for Groq.
 
+
 ### Best model
 
-➡ Use the provider's best model with the predefined value `PREFERRED_SOTA` and use a system prompt.
+➡ Use the provider's best model with the predefined value `SOTA` and use a system prompt.
 
 ```bash
-ask -provider cerebras -model PREFERRED_SOTA \
+ask -p cerebras -model SOTA \
     -sys "You have an holistic knowledge of the world. You reply with the style of William Zinsser and the wit of Dorothy Parker." \
     "Why is the sky blue?"
 ```
 
 💡 Set `CEREBRAS_API_KEY` (get it at [cloud.cerebras.ai/platform/](https://cloud.cerebras.ai/platform/)) for
 Cerebras.
+
 
 ### Vision
 
@@ -69,12 +96,22 @@ ask -sys "You are an expert at analysing pictures." -f banana.jpg "What is this?
 💡 Set `GEMINI_API_KEY` (get it at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)) for
 Google's Gemini.
 
+
+### Image generation
+
+➡ Generate an image for free
+
+```bash
+ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free "Picture of a dog"
+```
+
+
 ### File by URL
 
 ➡ Analyse a file from an URL using vision.
 
 ```bash
-ask -provider openai \
+ask -p openai \
     -sys "You are an expert at analysing pictures." \
     -f https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Banana-Single.jpg/330px-Banana-Single.jpg \
     "What is this? Is it ripe?"
@@ -84,12 +121,13 @@ ask -provider openai \
 [platform.openai.com/settings/organization/api-keys](https://platform.openai.com/settings/organization/api-keys))
 for OpenAI.
 
+
 ### Bash
 
 ➡ Leverage `bash` tool to enable the model to read local files and enable verbose logging. Only available on Linux.
 
 ```bash
-ask -provider anthropic -v "Can you make a summary of the file named README.md?"
+ask -p anthropic -bash -v "Can you make a summary of the file named README.md?"
 ```
 
 💡 Set `ANTHROPIC_API_KEY` (get it at
@@ -97,6 +135,7 @@ ask -provider anthropic -v "Can you make a summary of the file named README.md?"
 
 ⚠ This only works on Linux. This enables the model to read *anything* on your computer. This is dangerous. A
 better solution will be added later.
+
 
 ### Local
 
