@@ -12,7 +12,7 @@ Extremely lightweight yet powerful AI tool.
 
 ## Installation
 
-Get the binaries from https://github.com/maruel/ask/releases
+Get the binaries from [github.com/maruel/ask/releases](https://github.com/maruel/ask/releases)
 
 From sources: Install [Go](https://go.dev/dl), then run:
 
@@ -189,7 +189,7 @@ llama-serve -http 0.0.0.0:8080 -model Menlo/Jan-nano-gguf/jan-nano-4b-Q8_0.gguf 
 # Access this model from your local network:
 export ASK_PROVIDER=llamacpp
 export ASK_REMOTE=http://my-server.local:8080
-ask "Can you make a summary of the file named README.md?"
+ask -bash "Can you make a summary of the file named README.md?"
 ```
 
 
