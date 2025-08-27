@@ -6,7 +6,7 @@ name: Build Go Executables
 
 on:
   push:
-    branches: [main]
+    branches: [main, "test-v*"]
     tags: ["v*"]
   pull_request:
     branches: [main]
@@ -69,12 +69,12 @@ jobs:
           path: build/${{ matrix.goos }}-${{ matrix.goarch }}/
           retention-days: 5
 
-  # Optional: Create release if this is a tag push
+  # Create release if this is a tag push.
   release:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/refs/test-v')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -92,12 +92,12 @@ jobs:
             tar -czf "../../release/binaries-${platform}.tar.gz" *
             cd ..
           done
-      #- name: Create Release
-      #  uses: softprops/action-gh-release@v1
-      #  with:
-      #    files: release/*.tar.gz
-      #    draft: false
-      #    prerelease: false
-      #    generate_release_notes: true
-      #  env:
-      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/*.tar.gz
+          draft: ${{!startsWith(github.ref , 'refs/tags/v')}}
+          prerelease: ${{!startsWith(github.ref , 'refs/tags/v')}}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
