@@ -1,32 +1,45 @@
 # ask
 
-Extremely lightweight AI tool.
+Extremely lightweight yet powerful AI tool.
 
-- Content analysis, e.g. images, PDF, audio, videos, etc.
+- Input file analysis: images, PDF, audio, videos, etc.
 - Generation: image, videos.
-- 🦸 On linux with bubblewrap (`bwrap`) installed, a `bash` tool mounting the file system as read-only is
-  provided.
+- Tools: websearch, on linux with bubblewrap (`bwrap`) installed, a `bash` tool mounting the file system as
+  read-only is provided.
 - Works on Windows, macOS and Linux.
 - No need to fight with Python or Node.
 
 
 ## TL;DR:
 
-Read a local file and summarizes its content:
+Read a local file and summarizes its content. 💡 Set
+[`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys))
 
 ```bash
-ask -p cerebras -bash \
+ask -p anthropic -bash \
     "Can you make a summary of the file named README.md?"
 ```
 
-Generate a picture:
+
+Generate a picture. 💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settings/api-keys)
 
 ```bash
 ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free \
     "Picture of a dog"
 ```
 
-Have Go install the tool while running it:
+
+Generate a video starting from the image generated above. 💡 Set
+[`GEMINI_API_KEY`](https://aistudio.google.com/apikey))
+
+```bash
+ask -p gemini -m veo-3.0-fast-generate-preview \
+    -f content.jpg \
+    "Carton dog playing with a ball on the beach"
+```
+
+
+Have Go install the tool while running it. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys)
 
 ```bash
 go run github.com/maruel/ask@latest \
@@ -51,18 +64,17 @@ If you'd like to have binary releases, please open an issue.
 
 ### Simple
 
-➡ Simple usage. Defaults to a good model.
+➡ Simple usage. Defaults to a good model. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys)
 
 ```bash
 ask -provider groq "Which is the best Canadian city? Be decisive."
 ```
 
-💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys) for Groq.
-
 
 ### Best model
 
-➡ Use the provider's best model with the predefined value `SOTA` and use a system prompt.
+➡ Use the provider's best model with the predefined value `SOTA` and use a system prompt. 💡 Set
+[`CEREBRAS_API_KEY`](https://cloud.cerebras.ai/platform/))
 
 ```bash
 ask -p cerebras -model SOTA \
@@ -70,37 +82,33 @@ ask -p cerebras -model SOTA \
     "Why is the sky blue?"
 ```
 
-💡 Set [`CEREBRAS_API_KEY`](https://cloud.cerebras.ai/platform/)) for Cerebras.
-
 
 ### Vision
 
-➡ Analyse a picture using vision.
+➡ Analyse a picture using vision. 💡 Set [`MISTRAL_API_KEY`](https://console.mistral.ai/api-keys)
 
 ```bash
-ask -p gemini -m gemini-2.5-flash \
+ask -p mistral -m mistral-small-latest \
     -sys "You are an expert at analysing pictures." \
     -f banana.jpg \
     "What is this? Is it ripe?"
 ```
 
-💡 Set [`GEMINI_API_KEY`](https://aistudio.google.com/apikey)) for Google's Gemini.
-
 
 ### Image generation
 
-➡ Generate an image for free
+➡ Generate an image for free. 💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settings/api-keys)
 
 ```bash
-ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free "Picture of a dog"
+ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free \
+    "Picture of a dog"
 ```
-
-💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settings/api-keys) for TogetherAI.
 
 
 ### File by URL
 
-➡ Analyse a file from an URL using vision.
+➡ Analyse a file from an URL using vision. 💡 Set
+[`OPENAI_API_KEY`](https://platform.openai.com/settings/organization/api-keys)
 
 ```bash
 ask -p openai \
@@ -109,18 +117,16 @@ ask -p openai \
     "What is this? Is it ripe?"
 ```
 
-💡 Set [`OPENAI_API_KEY`](https://platform.openai.com/settings/organization/api-keys)) for OpenAI.
-
 
 ### Bash
 
-➡ Leverage `bash` tool to enable the model to read local files and enable verbose logging. Only available on Linux.
+➡ Leverage `bash` tool to enable the model to read local files and enable verbose logging. Only available on
+Linux. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys)
 
 ```bash
-ask -p anthropic -bash -v "Can you make a summary of the file named README.md?"
+ask -p anthropic -bash -v \
+    "Can you make a summary of the file named README.md?"
 ```
-
-💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys)) for Anthropic.
 
 ⚠ This only works on Linux. This enables the model to read *anything* on your computer. This is dangerous. A
 better solution will be added later.
@@ -155,6 +161,7 @@ export ASK_REMOTE=http://my-server.local:8080
 ask "Can you make a summary of the file named README.md?"
 ```
 
+
 ### Local Vision
 
 ➡ Use a vision enabled local model using llama.cpp.
@@ -180,6 +187,7 @@ ask -f https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Flag_of_Iceland
 ## Providers
 
 Supports all providers supported by [github.com/maruel/genai](https://github.com/maruel/genai):
+
 - Anthropic
 - Cerebras
 - Cloudflare Workers AI
