@@ -12,13 +12,13 @@ Extremely lightweight yet powerful AI tool.
 
 ## Installation
 
-Install [Go](https://go.dev/dl), then run:
+Get the binaries from https://github.com/maruel/ask/releases
+
+From sources: Install [Go](https://go.dev/dl), then run:
 
 ```bash
 go install github.com/maruel/ask/cmd/...@latest
 ```
-
-➕ If you'd like to have binary releases, please open an issue.
 
 
 Have Go install the tool while running it. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys).
