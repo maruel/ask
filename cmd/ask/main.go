@@ -70,10 +70,21 @@ func mainImpl() error {
 	}
 	names := slices.Sorted(maps.Keys(providers.Available(ctx)))
 	verbose := flag.Bool("v", false, "verbose")
-	provider := flag.String("provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", "))
-	remote := flag.String("remote", os.Getenv("ASK_REMOTE"), "URL to use to access the backend, useful for local model")
-	model := flag.String("model", os.Getenv("ASK_MODEL"), "model ID to use, \"PREFERRED_CHEAP\" or \"PREFERRED_SOTA\" to automatically select better models; defaults to a 'good' model")
-	noBash := flag.Bool("no-bash", false, "disable bash tool on Ubuntu even if bubblewrap is installed")
+	provider := flag.String("p", os.Getenv("ASK_PROVIDER"), "(alias for -provider)")
+	flag.StringVar(provider, "provider", "", "backend to use: "+strings.Join(names, ", "))
+
+	remote := flag.String("r", os.Getenv("ASK_REMOTE"), "(alias for -remote)")
+	flag.StringVar(remote, "remote", "", "URL to use to access the backend, useful for local model")
+
+	modelHelp := fmt.Sprintf("model ID to use, %q or %q to automatically select worse/better models; defaults to a %q model",
+		genai.ModelCheap, genai.ModelSOTA, genai.ModelGood)
+	model := flag.String("m", "", "(alias for -model)")
+	flag.StringVar(model, "model", os.Getenv("ASK_MODEL"), modelHelp)
+
+	modHelp := fmt.Sprintf("comma separated output modalities: %q, %q, %q, %q", genai.ModalityText, genai.ModalityAudio, genai.ModalityImage, genai.ModalityVideo)
+	mod := flag.String("modality", "", modHelp)
+
+	useBash := flag.Bool("bash", false, "enable bash tool; requires bubblewrap to mount a read-only file system")
 	systemPrompt := flag.String("sys", "", "system prompt to use")
 	var files stringsFlag
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times; can be an URL")
@@ -111,7 +122,15 @@ func mainImpl() error {
 	}
 	msgs = append(msgs, userMsg)
 
-	c, err := loadProvider(ctx, *provider, &genai.ProviderOptions{Model: *model, Remote: *remote}, wrapper)
+	provOpts := genai.ProviderOptions{Model: *model, Remote: *remote}
+	if *mod != "" {
+		parts := strings.Split(*mod, ",")
+		provOpts.OutputModalities = make(genai.Modalities, len(parts))
+		for i, p := range parts {
+			provOpts.OutputModalities[i] = genai.Modality(strings.TrimSpace(p))
+		}
+	}
+	c, err := loadProvider(ctx, *provider, &provOpts, wrapper)
 	if err != nil {
 		return err
 	}
@@ -120,7 +139,7 @@ func mainImpl() error {
 
 	// When bubblewrap is installed, use it to run bash.
 	// On Ubuntu, get it with: sudo apt install bubblewrap
-	if !*noBash {
+	if *useBash {
 		if bwrapPath, err2 := exec.LookPath("bwrap"); err2 == nil {
 			opts.Tools = append(opts.Tools, genai.ToolDef{
 				Name:        "bash",
@@ -151,8 +170,8 @@ func mainImpl() error {
 		}
 		if f.TextFragment != "" {
 			hasLF = strings.ContainsRune(f.TextFragment, '\n')
+			_, _ = os.Stdout.WriteString(f.TextFragment)
 		}
-		_, _ = os.Stdout.WriteString(f.TextFragment)
 	}
 	if !hasLF {
 		_, _ = os.Stdout.WriteString("\n")
