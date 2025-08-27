@@ -74,7 +74,7 @@ jobs:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/refs/test-v')
+    if: startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/test-v')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
