@@ -3,7 +3,7 @@
 Extremely lightweight yet powerful AI tool.
 
 - Input file analysis: images, PDF, audio, videos, etc.
-- Generation: image, videos.
+- Generation: [images](#image-generation), [videos](#video-generation).
 - Tools: websearch, on linux with bubblewrap (`bwrap`) installed, a `bash` tool mounting the file system as
   read-only is provided.
 - Works on Windows, macOS and Linux.
@@ -54,18 +54,6 @@ ask -p cerebras -model SOTA \
 ```
 
 
-### Vision
-
-➡ Analyse a picture using vision. 💡 Set [`MISTRAL_API_KEY`](https://console.mistral.ai/api-keys).
-
-```bash
-ask -p mistral -m mistral-small-latest \
-    -sys "You are an expert at analysing pictures." \
-    -f banana.jpg \
-    "What is this? Is it ripe?"
-```
-
-
 ### Image generation
 
 ➡ Generate an image for free. 💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settings/api-keys).
@@ -95,7 +83,23 @@ ask -p gemini -m veo-3.0-fast-generate-preview \
 
 ![dog.avif](https://raw.githubusercontent.com/wiki/maruel/ask/dog.avif)
 
-🎬️ See the video with sound: [dog.mp4](https://raw.githubusercontent.com/wiki/maruel/ask/dog.mp4)
+🎬️ See the video with sound 🔊: [dog.mp4](https://raw.githubusercontent.com/wiki/maruel/ask/dog.mp4)
+
+
+### Vision
+
+➡ Analyse a picture using vision. 💡 Set [`MISTRAL_API_KEY`](https://console.mistral.ai/api-keys).
+
+```bash
+ask -p mistral -m mistral-small-latest \
+    -sys "You are an expert at analysing pictures." \
+    -f content.jpg \
+    "What is this? Where is it? Reply succinctly."
+```
+
+This may respond:
+
+> This is a cartoon dog. It is on a beach.
 
 
 ### File by URL
@@ -110,6 +114,17 @@ ask -p openai \
     "What is this? Is it ripe?"
 ```
 
+![banana.jpg](https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Banana-Single.jpg/330px-Banana-Single.jpg)
+
+This may respond:
+
+> That’s a banana. The peel is mostly yellow with only a few tiny brown flecks, so it’s ripe and ready to eat now.
+>
+> Notes:
+> - If you prefer a firmer, less sweet banana, wait until it has a little green at the stem.
+> - If you like it sweeter/softer, wait for brown spots to appear.
+> - To speed ripening, put it in a paper bag with an apple; to slow it, refrigerate (the peel will darken but
+>   the fruit stays fine).
 
 ### Bash
 
