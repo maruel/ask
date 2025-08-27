@@ -204,7 +204,7 @@ func AskMainImpl() error {
 			msg = msgs[len(msgs)-1]
 		}
 	} else {
-		res := genai.Result{}
+		var res genai.Result
 		res, err = finishStream()
 		msg = res.Message
 		usage = res.Usage
@@ -224,9 +224,9 @@ func AskMainImpl() error {
 		// be available for long.
 		var src io.Reader
 		if r.Doc.URL != "" {
-			req, err2 := c.HTTPClient().Get(r.Doc.URL)
-			if err2 != nil {
-				return err2
+			req, err3 := c.HTTPClient().Get(r.Doc.URL)
+			if err3 != nil {
+				return err3
 			} else if req.StatusCode != http.StatusOK {
 				return fmt.Errorf("got status code %d while retrieving %s", req.StatusCode, r.Doc.URL)
 			}
