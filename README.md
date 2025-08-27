@@ -10,57 +10,6 @@ Extremely lightweight yet powerful AI tool.
 - No need to fight with Python or Node.
 
 
-## TL;DR:
-
-Read a local file and summarizes its content. 💡 Set
-[`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
-
-```bash
-ask -p anthropic -bash \
-    "Make a one line summary of the file named README.md. Reply with only the summary."
-```
-
-> A lightweight AI tool that supports multiple providers, file analysis (images, PDF, audio, video), content
-> generation, and includes tools like websearch and bash access on Linux.
-
-
-Generate a picture. 💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settings/api-keys).
-
-```bash
-ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free \
-    "Cartoon of a dog on the beach"
-```
-
-> - Writing content.jpg
-
-![dog.jpg](https://raw.githubusercontent.com/wiki/maruel/ask/dog.jpg)
-
-
-Generate a video starting from the image generated above. 💡 Set
-[`GEMINI_API_KEY`](https://aistudio.google.com/apikey).
-
-```bash
-ask -p gemini -m veo-3.0-fast-generate-preview \
-    -f content.jpg \
-    "Dog playing on the beach with fishes jumping out of the water"
-```
-
-> - Writing content.mp4
-
-![dog.avif](https://raw.githubusercontent.com/wiki/maruel/ask/dog.avif)
-
-🎬️ See the video with sound: [dog.mp4](https://raw.githubusercontent.com/wiki/maruel/ask/dog.mp4)
-
-
-Have Go install the tool while running it. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys).
-
-```bash
-go run github.com/maruel/ask@latest \
-    -p groq \
-    "Give an advice that sounds good but is bad in practice"
-```
-
-
 ## Installation
 
 Install [Go](https://go.dev/dl), then run:
@@ -70,6 +19,15 @@ go install github.com/maruel/ask/cmd/...@latest
 ```
 
 ➕ If you'd like to have binary releases, please open an issue.
+
+
+Have Go install the tool while running it. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys).
+
+```bash
+go run github.com/maruel/ask@latest \
+    -p groq \
+    "Give an advice that sounds good but is bad in practice"
+```
 
 
 ## Usage
@@ -114,8 +72,30 @@ ask -p mistral -m mistral-small-latest \
 
 ```bash
 ask -p togetherai -m black-forest-labs/FLUX.1-schnell-Free \
-    "Picture of a dog"
+    "Cartoon of a dog on the beach"
 ```
+
+> - Writing content.jpg
+
+![dog.jpg](https://raw.githubusercontent.com/wiki/maruel/ask/dog.jpg)
+
+
+### Video generation
+
+➡ Generate a video starting from the image generated above. 💡 Set
+[`GEMINI_API_KEY`](https://aistudio.google.com/apikey).
+
+```bash
+ask -p gemini -m veo-3.0-fast-generate-preview \
+    -f content.jpg \
+    "Dog playing on the beach with fishes jumping out of the water"
+```
+
+> - Writing content.mp4
+
+![dog.avif](https://raw.githubusercontent.com/wiki/maruel/ask/dog.avif)
+
+🎬️ See the video with sound: [dog.mp4](https://raw.githubusercontent.com/wiki/maruel/ask/dog.mp4)
 
 
 ### File by URL
@@ -133,13 +113,18 @@ ask -p openai \
 
 ### Bash
 
-➡ Leverage `bash` tool to enable the model to read local files and enable verbose logging. Only available on
+➡ Leverage `bash` tool to enable the model to read local files. Only available on
 Linux. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
 
 ```bash
-ask -p anthropic -bash -v \
+ask -p anthropic -bash \
     "Can you make a summary of the file named README.md?"
 ```
+
+This may output:
+
+> A lightweight AI tool that supports multiple providers, file analysis (images, PDF, audio, video), content
+> generation, and includes tools like websearch and bash access on Linux.
 
 ⚠ This only works on Linux. This enables the model to read *anything* on your computer. This is dangerous. A
 better solution will be added later.
