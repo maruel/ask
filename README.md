@@ -231,13 +231,21 @@ ask -p anthropic -list-models
 This may print:
 
 > claude-opus-4-1-20250805: Claude Opus 4.1 (2025-08-05)
+>
 > claude-opus-4-20250514: Claude Opus 4 (2025-05-22)
+>
 > claude-sonnet-4-20250514: Claude Sonnet 4 (2025-05-22)
+>
 > claude-3-7-sonnet-20250219: Claude Sonnet 3.7 (2025-02-24)
+>
 > claude-3-5-sonnet-20241022: Claude Sonnet 3.5 (New) (2024-10-22)
+>
 > claude-3-5-haiku-20241022: Claude Haiku 3.5 (2024-10-22)
+>
 > claude-3-5-sonnet-20240620: Claude Sonnet 3.5 (Old) (2024-06-20)
+>
 > claude-3-haiku-20240307: Claude Haiku 3 (2024-03-07)
+>
 > claude-3-opus-20240229: Claude Opus 3 (2024-02-29)
 
 
