@@ -67,6 +67,19 @@ This may respond:
 > Well, my dear, if you must know, the sky is blue because the universe is something of a show-off. (...)
 
 
+## Environment variables
+
+➡ Set `ASK_PROVIDER`, `ASK_MODEL`, `ASK_SYSTEM_PROMPT` (and a few more) to set default values.
+💡 Set [`GEMINI_API_KEY`](https://aistudio.google.com/apikey).
+
+```bash
+export ASK_PROVIDER=gemini
+export ASK_MODEL=gemini-2.5-flash
+export ASK_SYSTEM_PROMPT="You are an expert at software engineering."
+ask "Is open source software a good idea?"
+```
+
+
 ### Image generation
 
 ➡ Generate an image for free. 💡 Set [`TOGETHER_API_KEY`](https://api.together.ai/settings/api-keys).
@@ -143,6 +156,7 @@ This may respond:
 > - To speed ripening, put it in a paper bag with an apple; to slow it, refrigerate (the peel will darken but
 >   the fruit stays fine).
 
+
 ### Bash
 
 ➡ Leverage `bash` tool to enable the model to read local files. Only available on
@@ -160,18 +174,6 @@ This may output:
 
 ⚠ This only works on Linux. This enables the model to read *anything* on your computer. This is dangerous. A
 better solution will be added later.
-
-
-## Environment variables
-
-➡ Set `ASK_PROVIDER`, `ASK_MODEL`, `ASK_SYSTEM_PROMPT` to set default values.
-
-```bash
-export ASK_PROVIDER=gemini
-export ASK_MODEL=gemini-2.5-flash
-export ASK_SYSTEM_PROMPT="You are an expert at software engineering."
-ask "Is open source software a good idea?"
-```
 
 
 ### Local 🏠️
