@@ -201,7 +201,7 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 	if useBash {
 		if bwrapPath, err := exec.LookPath("bwrap"); err == nil {
 			useTools = true
-			o := &genai.OptionsText{
+			o := &genai.OptionsTools{
 				Tools: []genai.ToolDef{
 					{
 						Name:        "bash",
