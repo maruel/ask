@@ -43,6 +43,24 @@ func (s *stringsFlag) String() string {
 }
 
 func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.Provider, error) {
+	if provider == "" {
+		// If there's only one available, use it!
+		provs := providers.Available(ctx)
+		if len(provs) == 1 {
+			for name, f := range provs {
+				c, err := f(ctx, opts, wrapper)
+				if err != nil {
+					return nil, fmt.Errorf("failed to connect to provider %q: %w", name, err)
+				}
+				return adapters.WrapThinking(c), nil
+			}
+		}
+		if len(provs) == 0 {
+			return nil, errors.New("no providers available, make sure to set an FOO_API_KEY env var")
+		}
+		names := slices.Sorted(maps.Keys(provs))
+		return nil, fmt.Errorf("multiple providers available: %s", strings.Join(names, ", "))
+	}
 	f := providers.All[provider]
 	if f == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
@@ -82,6 +100,7 @@ func AskMainImpl() error {
 		genai.ModelCheap, genai.ModelSOTA, genai.ModelGood)
 	model := flag.String("m", "", "(alias for -model)")
 	flag.StringVar(model, "model", os.Getenv("ASK_MODEL"), modelHelp)
+	listModels := flag.Bool("list-models", false, "list available models and exit")
 
 	modHelp := fmt.Sprintf("comma separated output modalities: %q, %q, %q, %q", genai.ModalityText, genai.ModalityAudio, genai.ModalityImage, genai.ModalityVideo)
 	mod := flag.String("modality", "", modHelp)
@@ -98,33 +117,12 @@ func AskMainImpl() error {
 			return &roundtrippers.Log{Transport: r, Logger: slog.Default()}
 		}
 	}
-	if *provider == "" {
-		return errors.New("-provider is required")
-	}
-	var msgs genai.Messages
-	// Some models, like Gemma3 on llamacpp, require a strict alternance between user and assistant.
-	userMsg := genai.Message{}
-	if query := strings.Join(flag.Args(), " "); query != "" {
-		userMsg.Requests = append(userMsg.Requests, genai.Request{Text: query})
-	}
-	for _, n := range files {
-		if strings.HasPrefix(n, "http://") || strings.HasPrefix(n, "https://") {
-			userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{URL: n}})
-			continue
-		}
-		f, err2 := os.Open(n)
-		if err2 != nil {
-			return err2
-		}
-		defer f.Close()
-		userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{Src: f}})
-	}
-	if len(userMsg.Requests) == 0 {
-		return errors.New("provide a prompt as an argument or input files")
-	}
-	msgs = append(msgs, userMsg)
 
+	// Load provider
 	provOpts := genai.ProviderOptions{Model: *model, Remote: *remote}
+	if *listModels {
+		provOpts.Model = genai.ModelNone
+	}
 	if *mod != "" {
 		parts := strings.Split(*mod, ",")
 		provOpts.OutputModalities = make(genai.Modalities, len(parts))
@@ -137,16 +135,71 @@ func AskMainImpl() error {
 		return err
 	}
 	slog.Info("loaded", "provider", c.Name(), "model", c.ModelID())
+
+	if *listModels {
+		if len(flag.Args()) != 0 {
+			return fmt.Errorf("cannot use -models with arguments")
+		}
+		if len(files) != 0 {
+			return fmt.Errorf("cannot use -models with files")
+		}
+		if *systemPrompt != "" {
+			return fmt.Errorf("cannot use -models with system prompt")
+		}
+		if *useBash {
+			return fmt.Errorf("cannot use -models with bash")
+		}
+		return printModels(ctx, c)
+	}
+
+	return sendRequest(ctx, c, flag.Args(), files, *systemPrompt, *useBash)
+}
+
+func printModels(ctx context.Context, c genai.Provider) error {
+	mdls, err := c.ListModels(ctx)
+	if err != nil {
+		return err
+	}
+	for _, m := range mdls {
+		// This is barebone, we'll want a cleaner output. In particular highlight which are CHEAP, GOOD and SOTA.
+		fmt.Println(m)
+	}
+	return err
+}
+
+func sendRequest(ctx context.Context, c genai.Provider, args []string, files stringsFlag, systemPrompt string, useBash bool) error {
+	// Process inputs
+	var msgs genai.Messages
+	userMsg := genai.Message{}
+	if query := strings.Join(args, " "); query != "" {
+		userMsg.Requests = append(userMsg.Requests, genai.Request{Text: query})
+	}
+	for _, n := range files {
+		if strings.HasPrefix(n, "http://") || strings.HasPrefix(n, "https://") {
+			userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{URL: n}})
+			continue
+		}
+		f, err := os.Open(n)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{Src: f}})
+	}
+	if len(userMsg.Requests) == 0 {
+		return errors.New("provide a prompt as an argument or input files")
+	}
+	msgs = append(msgs, userMsg)
 	var opts []genai.Options
-	if *systemPrompt != "" {
-		opts = append(opts, &genai.OptionsText{SystemPrompt: *systemPrompt})
+	if systemPrompt != "" {
+		opts = append(opts, &genai.OptionsText{SystemPrompt: systemPrompt})
 	}
 
 	useTools := false
 	// When bubblewrap is installed, use it to run bash.
 	// On Ubuntu, get it with: sudo apt install bubblewrap
-	if *useBash {
-		if bwrapPath, err2 := exec.LookPath("bwrap"); err2 == nil {
+	if useBash {
+		if bwrapPath, err := exec.LookPath("bwrap"); err == nil {
 			useTools = true
 			o := &genai.OptionsText{
 				Tools: []genai.ToolDef{
@@ -172,6 +225,11 @@ func AskMainImpl() error {
 		}
 	}
 
+	return execRequest(ctx, c, msgs, opts, useTools)
+}
+
+func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opts []genai.Options, useTools bool) error {
+	// Send request.
 	var fragments iter.Seq[genai.ReplyFragment]
 	var finishTools func() (genai.Messages, genai.Usage, error)
 	var finishStream func() (genai.Result, error)
@@ -196,6 +254,7 @@ func AskMainImpl() error {
 		_, _ = os.Stdout.WriteString("\n")
 	}
 
+	var err error
 	msg := genai.Message{}
 	var usage genai.Usage
 	if finishTools != nil {
