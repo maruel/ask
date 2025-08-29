@@ -8,6 +8,9 @@ Extremely lightweight yet powerful AI tool.
   read-only is provided.
 - Works on Windows, macOS and Linux.
 - No need to fight with Python or Node.
+- For short prompts:
+   - 2x faster than `claude -p` with Claude Sonnet 4 (1.5s vs >3s)
+   - 250ms~350ms operation on cerebras (qwen-3-coder-480b) and groq (openai/gpt-oss-120b)
 
 
 ## Installation
