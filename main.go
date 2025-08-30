@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/maruel/ask/internal"
+	"github.com/maruel/ask/internal/ask"
 )
 
 func main() {
-	if err := internal.AskMainImpl(); err != nil {
+	if err := ask.Main(); err != nil {
 		if err != context.Canceled {
 			fmt.Fprintf(os.Stderr, "%s: %s\n", os.Args[0], err)
 		}

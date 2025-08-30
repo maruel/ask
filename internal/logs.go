@@ -26,7 +26,7 @@ func init() {
 
 func Init() (context.Context, context.CancelFunc) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
-	logger := slog.New(tint.NewHandler(colorable.NewColorable(os.Stderr), &tint.Options{
+	logger := slog.New(tint.NewHandler(colorable.NewColorableStderr(), &tint.Options{
 		Level:      Level,
 		TimeFormat: "15:04:05.000", // Like time.TimeOnly plus milliseconds.
 		NoColor:    !isatty.IsTerminal(os.Stderr.Fd()),

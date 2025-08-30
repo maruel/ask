@@ -2,7 +2,10 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package internal
+// Package ask is the main entry point for the ask command.
+//
+// It is a separate package so people can go install github.com/maruel/ask@latest
+package ask
 
 import (
 	"context"
@@ -20,11 +23,13 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/maruel/ask/internal"
 	"github.com/maruel/genai"
 	"github.com/maruel/genai/adapters"
 	"github.com/maruel/genai/httprecord"
 	"github.com/maruel/genai/providers"
 	"github.com/maruel/roundtrippers"
+	"github.com/mattn/go-colorable"
 	"gopkg.in/dnaeon/go-vcr.v4/pkg/recorder"
 )
 
@@ -73,8 +78,14 @@ func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOpti
 	return adapters.WrapReasoning(c), nil
 }
 
-func AskMainImpl() error {
-	ctx, stop := Init()
+const (
+	reset   = "\x1b[0m"
+	hiblack = "\x1b[90m"
+)
+
+func Main() error {
+	flag.CommandLine.SetOutput(colorable.NewColorableStderr())
+	ctx, stop := internal.Init()
 	defer stop()
 
 	flag.Usage = func() {
@@ -123,7 +134,7 @@ func AskMainImpl() error {
 
 	flag.Parse()
 	if *verbose {
-		Level.Set(slog.LevelDebug)
+		internal.Level.Set(slog.LevelDebug)
 	}
 	if *record != "" {
 		if !strings.HasSuffix(*record, ".yaml") {
@@ -198,13 +209,14 @@ func AskMainImpl() error {
 }
 
 func printModels(ctx context.Context, c genai.Provider) error {
+	w := colorable.NewColorableStdout()
 	mdls, err := c.ListModels(ctx)
 	if err != nil {
 		return err
 	}
 	for _, m := range mdls {
 		// This is barebone, we'll want a cleaner output. In particular highlight which are CHEAP, GOOD and SOTA.
-		fmt.Println(m)
+		fmt.Fprintln(w, m)
 	}
 	return err
 }
@@ -274,6 +286,7 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 }
 
 func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opts []genai.Options, useTools, quiet bool) error {
+	w := colorable.NewColorableStdout()
 	// Send request.
 	var fragments iter.Seq[genai.ReplyFragment]
 	var finishTools func() (genai.Messages, genai.Usage, error)
@@ -293,13 +306,13 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 				mode = "text"
 				if !strings.HasSuffix(last, "\n\n") {
 					if !strings.HasSuffix(last, "\n") {
-						_, _ = os.Stdout.WriteString("\n")
+						io.WriteString(w, "\n")
 					}
-					_, _ = os.Stdout.WriteString("\n")
+					io.WriteString(w, "\n")
 				}
-				_, _ = os.Stdout.WriteString("Answer: ")
+				io.WriteString(w, hiblack+"Answer: "+reset)
 			}
-			_, _ = os.Stdout.WriteString(f.TextFragment)
+			io.WriteString(w, f.TextFragment)
 			last = f.TextFragment
 			continue
 		}
@@ -311,13 +324,13 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 				mode = "thinking"
 				if last != "" && !strings.HasSuffix(last, "\n\n") {
 					if !strings.HasSuffix(last, "\n") {
-						_, _ = os.Stdout.WriteString("\n")
+						io.WriteString(w, "\n")
 					}
-					_, _ = os.Stdout.WriteString("\n")
+					io.WriteString(w, "\n")
 				}
-				_, _ = os.Stdout.WriteString("Reasoning: ")
+				io.WriteString(w, hiblack+"Reasoning: "+reset)
 			}
-			_, _ = os.Stdout.WriteString(f.ReasoningFragment)
+			io.WriteString(w, f.ReasoningFragment)
 			last = f.ReasoningFragment
 			continue
 		}
@@ -326,17 +339,17 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 				mode = "citation"
 				if last != "" && !strings.HasSuffix(last, "\n\n") {
 					if !strings.HasSuffix(last, "\n") {
-						_, _ = os.Stdout.WriteString("\n")
+						io.WriteString(w, "\n")
 					}
-					_, _ = os.Stdout.WriteString("\n")
+					io.WriteString(w, "\n")
 				}
-				_, _ = os.Stdout.WriteString("Citation:\n")
+				io.WriteString(w, hiblack+"Citation:\n"+reset)
 			}
 			for _, src := range f.Citation.Sources {
 				if src.Type == "web" {
-					fmt.Printf("  - %s / %s\n", src.Title, src.URL)
+					fmt.Fprintf(w, "  - %s / %s\n", src.Title, src.URL)
 				} else {
-					fmt.Printf("  - Image: %s\n", src.URL)
+					fmt.Fprintf(w, "  - Image: %s\n", src.URL)
 				}
 			}
 			last = "\n"
@@ -344,7 +357,7 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 		}
 	}
 	if !strings.HasSuffix(last, "\n") {
-		_, _ = os.Stdout.WriteString("\n")
+		io.WriteString(w, "\n")
 	}
 
 	var err error
@@ -370,7 +383,7 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 		if err2 != nil {
 			return err2
 		}
-		fmt.Printf("- Writing %s\n", n)
+		fmt.Fprintf(w, "- Writing %s\n", n)
 
 		// The image can be returned as an URL or inline, depending on the provider. Always save it since it won't
 		// be available for long.
