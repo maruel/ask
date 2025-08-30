@@ -4,8 +4,10 @@ Extremely lightweight yet powerful AI tool.
 
 - Input file analysis: images, PDF, audio, videos, etc.
 - Generation: [images](#image-generation), [videos](#video-generation).
-- Tools: websearch, on linux with bubblewrap (`bwrap`) installed, a `bash` tool mounting the file system as
-  read-only is provided.
+- Tools:
+    - Web search for anthropic, gemini, openai and perplexity! Use `-web` 🕸️
+    - On linux with bubblewrap (`bwrap`) installed, a `bash` tool mounting the file system as
+      read-only is provided.
 - Works on Windows, macOS and Linux.
 - No need to fight with Python or Node.
 - For short prompts:
@@ -158,6 +160,16 @@ This may respond:
 > - If you like it sweeter/softer, wait for brown spots to appear.
 > - To speed ripening, put it in a paper bag with an apple; to slow it, refrigerate (the peel will darken but
 >   the fruit stays fine).
+
+### Web search 🕸️
+
+➡ Tell the model to search the web to answer your question. 💡 Set
+[`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
+
+```bash
+ask -p anthropic -web \
+    "Why is paid parental leave missing in certain advanced economies?"
+```
 
 
 ### Bash

@@ -106,6 +106,7 @@ func AskMainImpl() error {
 	mod := flag.String("modality", "", modHelp)
 
 	useBash := flag.Bool("bash", false, "enable bash tool; requires bubblewrap to mount a read-only file system")
+	useWeb := flag.Bool("web", false, "enable web search tool; may be costly")
 	systemPrompt := flag.String("sys", os.Getenv("ASK_SYSTEM_PROMPT"), "system prompt to use")
 	var files stringsFlag
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times; can be an URL")
@@ -147,12 +148,15 @@ func AskMainImpl() error {
 			return fmt.Errorf("cannot use -models with system prompt")
 		}
 		if *useBash {
-			return fmt.Errorf("cannot use -models with bash")
+			return fmt.Errorf("cannot use -models with -bash")
+		}
+		if *useWeb {
+			return fmt.Errorf("cannot use -models with -web")
 		}
 		return printModels(ctx, c)
 	}
 
-	return sendRequest(ctx, c, flag.Args(), files, *systemPrompt, *useBash)
+	return sendRequest(ctx, c, flag.Args(), files, *systemPrompt, *useBash, *useWeb)
 }
 
 func printModels(ctx context.Context, c genai.Provider) error {
@@ -167,7 +171,7 @@ func printModels(ctx context.Context, c genai.Provider) error {
 	return err
 }
 
-func sendRequest(ctx context.Context, c genai.Provider, args []string, files stringsFlag, systemPrompt string, useBash bool) error {
+func sendRequest(ctx context.Context, c genai.Provider, args []string, files stringsFlag, systemPrompt string, useBash, useWeb bool) error {
 	// Process inputs
 	var msgs genai.Messages
 	userMsg := genai.Message{}
@@ -217,6 +221,7 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 						},
 					},
 				},
+				WebSearch: useWeb,
 			}
 			opts = append(opts, o)
 			slog.DebugContext(ctx, "bwrap", "path", bwrapPath)
@@ -224,7 +229,9 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 			slog.DebugContext(ctx, "bwrap", "not found", err)
 		}
 	}
-
+	if !useTools && useWeb {
+		opts = append(opts, &genai.OptionsTools{WebSearch: true})
+	}
 	return execRequest(ctx, c, msgs, opts, useTools)
 }
 
@@ -248,6 +255,12 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 		if f.TextFragment != "" {
 			hasLF = strings.ContainsRune(f.TextFragment, '\n')
 			_, _ = os.Stdout.WriteString(f.TextFragment)
+		}
+		if f.ThinkingFragment != "" {
+			// TODO: Print thinking
+		}
+		if !f.Citation.IsZero() {
+			// TODO: Print citation
 		}
 	}
 	if !hasLF {
