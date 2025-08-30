@@ -176,6 +176,7 @@ This may respond:
 > - To speed ripening, put it in a paper bag with an apple; to slow it, refrigerate (the peel will darken but
 >   the fruit stays fine).
 
+
 ### Web search 🕸️
 
 ➡ Tell the model to search the web to answer your question. 💡 Set
@@ -185,6 +186,8 @@ This may respond:
 ask -p anthropic -web \
     "Why is paid parental leave missing in certain advanced economies?"
 ```
+
+This works with anthropic, gemini, openai and perplexity!
 
 
 ### Bash
@@ -244,6 +247,44 @@ export ASK_PROVIDER=llamacpp
 export ASK_REMOTE=http://my-server.local:8080
 ask -f https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Flag_of_Iceland.svg/330px-Flag_of_Iceland.svg.png \
     "What is this?"
+```
+
+
+### HTTP session recording and playback
+
+➡ Save the HTTP record as a YAML file and play it back.
+
+For example, first record the session, then play it back the second time.
+
+```bash
+$ time ask -p cerebras -m qwen-3-235b-a22b-instruct-2507 -record file.yaml tell a good joke
+Sure! Here's a clean and classic one:
+
+Why don't skeletons fight each other?
+
+Because they don’t have the guts! 💀😄
+
+Want another? I've got a whole punchline drawer!
+
+real    0m4,152s
+user    0m0,040s
+sys     0m0,023s
+
+$ wc -c file.yaml
+14336 file.yaml
+
+$ time ask -p cerebras -m qwen-3-235b-a22b-instruct-2507 -record file.yaml tell a good joke
+Sure! Here's a clean and classic one:
+
+Why don't skeletons fight each other?
+
+Because they don’t have the guts! 💀😄
+
+Want another? I've got a whole punchline drawer!
+
+real    0m0,018s
+user    0m0,009s
+sys     0m0,013s
 ```
 
 

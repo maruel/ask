@@ -22,8 +22,10 @@ import (
 
 	"github.com/maruel/genai"
 	"github.com/maruel/genai/adapters"
+	"github.com/maruel/genai/httprecord"
 	"github.com/maruel/genai/providers"
 	"github.com/maruel/roundtrippers"
+	"gopkg.in/dnaeon/go-vcr.v4/pkg/recorder"
 )
 
 type bashArguments struct {
@@ -60,11 +62,11 @@ func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOpti
 		names := slices.Sorted(maps.Keys(provs))
 		return nil, fmt.Errorf("multiple providers available: %s", strings.Join(names, ", "))
 	}
-	f := providers.All[provider]
-	if f == nil {
+	cfg := providers.All[provider]
+	if cfg.Factory == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	c, err := f(ctx, opts, wrapper)
+	c, err := cfg.Factory(ctx, opts, wrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
@@ -87,39 +89,63 @@ func AskMainImpl() error {
 		fmt.Fprintf(w, "  ASK_SYSTEM_PROMPT: default value for -sys\n")
 		fmt.Fprintf(w, "\nUse github.com/maruel/genai/cmd/list-model@latest for a list of available models.\n")
 	}
-	names := slices.Sorted(maps.Keys(providers.Available(ctx)))
+	// General.
 	verbose := flag.Bool("v", false, "verbose logs about metadata and usage")
 	quiet := flag.Bool("q", false, "silence the thinking and citations")
-	provider := flag.String("p", "", "(alias for -provider)")
-	flag.StringVar(provider, "provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", "))
+	record := flag.String("record", "", "record the HTTP requests in yaml files for inspection in the specified file.")
 
+	// Provider.
+	provider := flag.String("p", "", "(alias for -provider)")
+	names := slices.Sorted(maps.Keys(providers.Available(ctx)))
+	flag.StringVar(provider, "provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", "))
 	remote := flag.String("r", "", "(alias for -remote)")
 	flag.StringVar(remote, "remote", os.Getenv("ASK_REMOTE"), "URL to use to access the backend, useful for local model")
 
+	// Commands.
+	listModels := flag.Bool("list-models", false, "list available models and exit")
+
+	// Model and modalities.
 	modelHelp := fmt.Sprintf("model ID to use, %q or %q to automatically select worse/better models; defaults to a %q model",
 		genai.ModelCheap, genai.ModelSOTA, genai.ModelGood)
 	model := flag.String("m", "", "(alias for -model)")
 	flag.StringVar(model, "model", os.Getenv("ASK_MODEL"), modelHelp)
-	listModels := flag.Bool("list-models", false, "list available models and exit")
-
 	modHelp := fmt.Sprintf("comma separated output modalities: %q, %q, %q, %q", genai.ModalityText, genai.ModalityAudio, genai.ModalityImage, genai.ModalityVideo)
 	mod := flag.String("modality", "", modHelp)
 
+	// Tools.
 	useBash := flag.Bool("bash", false, "enable bash tool; requires bubblewrap to mount a read-only file system")
 	useWeb := flag.Bool("web", false, "enable web search tool; may be costly")
+
+	// Inputs.
 	systemPrompt := flag.String("sys", os.Getenv("ASK_SYSTEM_PROMPT"), "system prompt to use")
 	var files stringsFlag
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times; can be an URL")
+
 	flag.Parse()
-	var wrapper func(http.RoundTripper) http.RoundTripper
 	if *verbose {
 		Level.Set(slog.LevelDebug)
-		wrapper = func(r http.RoundTripper) http.RoundTripper {
-			return &roundtrippers.Log{Transport: r, Logger: slog.Default()}
+	}
+	if *record != "" {
+		if !strings.HasSuffix(*record, ".yaml") {
+			return errors.New("record must end with .yaml")
 		}
+		*record = (*record)[:len(*record)-len(".yaml")]
+	}
+	var rr *recorder.Recorder
+	var errRR error
+	wrapper := func(h http.RoundTripper) http.RoundTripper {
+		if *verbose {
+			h = &roundtrippers.Log{Transport: h, Logger: slog.Default()}
+		}
+		if *record != "" {
+			slog.Info("recording", "dir", *record+".yaml")
+			rr, errRR = httprecord.New(*record, h)
+			h = rr
+		}
+		return h
 	}
 
-	// Load provider
+	// Load provider.
 	provOpts := genai.ProviderOptions{Model: *model, Remote: *remote}
 	if *listModels {
 		provOpts.Model = genai.ModelNone
@@ -136,6 +162,14 @@ func AskMainImpl() error {
 		return err
 	}
 	slog.Info("loaded", "provider", c.Name(), "model", c.ModelID())
+	if rr != nil {
+		defer func() {
+			// TODO: Return error instead of logging.
+			if err2 := rr.Stop(); err2 != nil {
+				slog.Error("failed to stop recorder", "error", err2)
+			}
+		}()
+	}
 
 	if *listModels {
 		if len(flag.Args()) != 0 {
@@ -153,10 +187,14 @@ func AskMainImpl() error {
 		if *useWeb {
 			return fmt.Errorf("cannot use -models with -web")
 		}
-		return printModels(ctx, c)
+		err = printModels(ctx, c)
+	} else {
+		err = sendRequest(ctx, c, flag.Args(), files, *systemPrompt, *useBash, *useWeb, *quiet)
 	}
-
-	return sendRequest(ctx, c, flag.Args(), files, *systemPrompt, *useBash, *useWeb, *quiet)
+	if errRR != nil {
+		return errRR
+	}
+	return err
 }
 
 func printModels(ctx context.Context, c genai.Provider) error {

@@ -43,11 +43,11 @@ func listProviderGenAsync(ctx context.Context) []string {
 }
 
 func loadProviderGenAsync(ctx context.Context, provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGenAsync, error) {
-	f := providers.All[provider]
-	if f == nil {
+	cfg := providers.All[provider]
+	if cfg.Factory == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	c, err := f(ctx, opts, wrapper)
+	c, err := cfg.Factory(ctx, opts, wrapper)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
@@ -161,7 +161,7 @@ func cmdGet(args []string) error {
 	if !slices.Contains(names, *provider) {
 		return errors.New("unknown provider")
 	}
-	b, err := providers.All[*provider](ctx, &genai.ProviderOptions{}, wrapper)
+	b, err := providers.All[*provider].Factory(ctx, &genai.ProviderOptions{}, wrapper)
 	if err != nil {
 		return err
 	}
