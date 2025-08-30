@@ -126,8 +126,8 @@ func run(ctx context.Context, query, filename string) error {
 			if strings.TrimSpace(r.Text) != "" {
 				fmt.Printf("%s\n", r.Text)
 			}
-		} else if r.Thinking != "" {
-			fmt.Printf("%s\n", r.Thinking)
+		} else if r.Reasoning != "" {
+			fmt.Printf("%s\n", r.Reasoning)
 		} else if r.Doc.Src != nil {
 			n := r.Doc.GetFilename()
 			if !strings.HasSuffix(n, ".png") {

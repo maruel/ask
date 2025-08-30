@@ -51,7 +51,7 @@ func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOpti
 				if err != nil {
 					return nil, fmt.Errorf("failed to connect to provider %q: %w", name, err)
 				}
-				return adapters.WrapThinking(c), nil
+				return adapters.WrapReasoning(c), nil
 			}
 		}
 		if len(provs) == 0 {
@@ -68,7 +68,7 @@ func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOpti
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
-	return adapters.WrapThinking(c), nil
+	return adapters.WrapReasoning(c), nil
 }
 
 func AskMainImpl() error {
@@ -264,7 +264,7 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 			last = f.TextFragment
 			continue
 		}
-		if f.ThinkingFragment != "" {
+		if f.ReasoningFragment != "" {
 			if mode != "thinking" {
 				mode = "thinking"
 				if last != "" && !strings.HasSuffix(last, "\n\n") {
@@ -273,10 +273,10 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 					}
 					_, _ = os.Stdout.WriteString("\n")
 				}
-				_, _ = os.Stdout.WriteString("Thinking: ")
+				_, _ = os.Stdout.WriteString("Reasoning: ")
 			}
-			_, _ = os.Stdout.WriteString(f.ThinkingFragment)
-			last = f.ThinkingFragment
+			_, _ = os.Stdout.WriteString(f.ReasoningFragment)
+			last = f.ReasoningFragment
 			continue
 		}
 		if !f.Citation.IsZero() {
