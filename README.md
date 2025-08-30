@@ -2,7 +2,7 @@
 
 Extremely lightweight yet powerful AI tool.
 
-- Input file analysis: images, PDF, audio, videos, etc.
+- Input file analysis: text, images, PDF, audio, videos, etc.
 - Generation: [images](#image-generation), [videos](#video-generation).
 - Tools:
     - Web search for anthropic, gemini, openai and perplexity! Use `-web` 🕸️
@@ -135,6 +135,21 @@ ask -p mistral -m mistral-small-latest \
 This may respond:
 
 > This is a cartoon dog. It is on a beach.
+
+
+### Text file
+
+➡ Analyse any text file on any provider as long as it fits in the context window. 💡 Set
+[`CEREBRAS_API_KEY`](https://cloud.cerebras.ai/platform/).
+
+```bash
+ask -f README.md -p cerebras Summarize this document in one sentence
+```
+
+This may respond:
+
+> The "ask" tool is an extremely lightweight yet powerful AI tool that supports various providers, file
+> analysis, content generation, and additional tools like web search and bash access on Linux.
 
 
 ### File by URL
