@@ -48,8 +48,8 @@ func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOpti
 		// If there's only one available, use it!
 		provs := providers.Available(ctx)
 		if len(provs) == 1 {
-			for name, f := range provs {
-				c, err := f(ctx, opts, wrapper)
+			for name, cfg := range provs {
+				c, err := cfg.Factory(ctx, opts, wrapper)
 				if err != nil {
 					return nil, fmt.Errorf("failed to connect to provider %q: %w", name, err)
 				}

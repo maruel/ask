@@ -29,8 +29,8 @@ import (
 
 func listProviderGenAsync(ctx context.Context) []string {
 	var names []string
-	for name, f := range providers.Available(ctx) {
-		c, err := f(ctx, &genai.ProviderOptions{Model: genai.ModelNone}, nil)
+	for name, cfg := range providers.Available(ctx) {
+		c, err := cfg.Factory(ctx, &genai.ProviderOptions{Model: genai.ModelNone}, nil)
 		if err != nil {
 			continue
 		}
