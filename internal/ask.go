@@ -19,7 +19,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"unicode"
 
 	"github.com/maruel/genai"
 	"github.com/maruel/genai/adapters"
@@ -245,25 +244,64 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 	} else {
 		fragments, finishStream = c.GenStream(ctx, msgs, opts...)
 	}
-	start := true
-	hasLF := false
+	mode := "text"
+	last := ""
+	// TODO: Another better form would be to keep track of the citations and print them at the bottom. That's
+	// what most web uis do. Please send a PR to do that.
 	for f := range fragments {
-		if start {
-			f.TextFragment = strings.TrimLeftFunc(f.TextFragment, unicode.IsSpace)
-			start = false
-		}
 		if f.TextFragment != "" {
-			hasLF = strings.ContainsRune(f.TextFragment, '\n')
+			if mode != "text" {
+				mode = "text"
+				if !strings.HasSuffix(last, "\n\n") {
+					if !strings.HasSuffix(last, "\n") {
+						_, _ = os.Stdout.WriteString("\n")
+					}
+					_, _ = os.Stdout.WriteString("\n")
+				}
+				_, _ = os.Stdout.WriteString("Answer: ")
+			}
 			_, _ = os.Stdout.WriteString(f.TextFragment)
+			last = f.TextFragment
+			continue
 		}
 		if f.ThinkingFragment != "" {
-			// TODO: Print thinking
+			if mode != "thinking" {
+				mode = "thinking"
+				if last != "" && !strings.HasSuffix(last, "\n\n") {
+					if !strings.HasSuffix(last, "\n") {
+						_, _ = os.Stdout.WriteString("\n")
+					}
+					_, _ = os.Stdout.WriteString("\n")
+				}
+				_, _ = os.Stdout.WriteString("Thinking: ")
+			}
+			_, _ = os.Stdout.WriteString(f.ThinkingFragment)
+			last = f.ThinkingFragment
+			continue
 		}
 		if !f.Citation.IsZero() {
-			// TODO: Print citation
+			if mode != "citation" {
+				mode = "citation"
+				if last != "" && !strings.HasSuffix(last, "\n\n") {
+					if !strings.HasSuffix(last, "\n") {
+						_, _ = os.Stdout.WriteString("\n")
+					}
+					_, _ = os.Stdout.WriteString("\n")
+				}
+				_, _ = os.Stdout.WriteString("Citation:\n")
+			}
+			for _, src := range f.Citation.Sources {
+				if src.Type == "web" {
+					fmt.Printf("  - %s / %s\n", src.Title, src.URL)
+				} else {
+					fmt.Printf("  - Image: %s\n", src.URL)
+				}
+			}
+			last = "\n"
+			continue
 		}
 	}
-	if !hasLF {
+	if !strings.HasSuffix(last, "\n") {
 		_, _ = os.Stdout.WriteString("\n")
 	}
 
