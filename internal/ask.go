@@ -88,7 +88,8 @@ func AskMainImpl() error {
 		fmt.Fprintf(w, "\nUse github.com/maruel/genai/cmd/list-model@latest for a list of available models.\n")
 	}
 	names := slices.Sorted(maps.Keys(providers.Available(ctx)))
-	verbose := flag.Bool("v", false, "verbose")
+	verbose := flag.Bool("v", false, "verbose logs about metadata and usage")
+	quiet := flag.Bool("q", false, "silence the thinking and citations")
 	provider := flag.String("p", "", "(alias for -provider)")
 	flag.StringVar(provider, "provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", "))
 
@@ -155,7 +156,7 @@ func AskMainImpl() error {
 		return printModels(ctx, c)
 	}
 
-	return sendRequest(ctx, c, flag.Args(), files, *systemPrompt, *useBash, *useWeb)
+	return sendRequest(ctx, c, flag.Args(), files, *systemPrompt, *useBash, *useWeb, *quiet)
 }
 
 func printModels(ctx context.Context, c genai.Provider) error {
@@ -170,7 +171,7 @@ func printModels(ctx context.Context, c genai.Provider) error {
 	return err
 }
 
-func sendRequest(ctx context.Context, c genai.Provider, args []string, files stringsFlag, systemPrompt string, useBash, useWeb bool) error {
+func sendRequest(ctx context.Context, c genai.Provider, args []string, files stringsFlag, systemPrompt string, useBash, useWeb, quiet bool) error {
 	// Process inputs
 	var msgs genai.Messages
 	userMsg := genai.Message{}
@@ -231,10 +232,10 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 	if !useTools && useWeb {
 		opts = append(opts, &genai.OptionsTools{WebSearch: true})
 	}
-	return execRequest(ctx, c, msgs, opts, useTools)
+	return execRequest(ctx, c, msgs, opts, useTools, quiet)
 }
 
-func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opts []genai.Options, useTools bool) error {
+func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opts []genai.Options, useTools, quiet bool) error {
 	// Send request.
 	var fragments iter.Seq[genai.ReplyFragment]
 	var finishTools func() (genai.Messages, genai.Usage, error)
@@ -262,6 +263,9 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 			}
 			_, _ = os.Stdout.WriteString(f.TextFragment)
 			last = f.TextFragment
+			continue
+		}
+		if quiet {
 			continue
 		}
 		if f.ReasoningFragment != "" {
