@@ -8,6 +8,7 @@ require (
 	github.com/maruel/roundtrippers v0.5.0
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
+	gopkg.in/dnaeon/go-vcr.v4 v4.0.5
 )
 
 require (
@@ -22,7 +23,6 @@ require (
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	golang.org/x/sync v0.16.0 // indirect
 	golang.org/x/sys v0.35.0 // indirect
-	gopkg.in/dnaeon/go-vcr.v4 v4.0.5 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
