@@ -9,7 +9,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync"
+	"os"
 	"unsafe"
 
 	"github.com/maruel/genai"
@@ -17,96 +17,67 @@ import (
 )
 
 var (
-	userenv  = windows.NewLazyDLL("userenv.dll")
-	kernel32 = windows.NewLazyDLL("kernel32.dll")
-	advapi32 = windows.NewLazyDLL("advapi32.dll")
-
-	procCreateAppContainerProfile = userenv.NewProc("CreateAppContainerProfile")
-	procDeleteAppContainerProfile = userenv.NewProc("DeleteAppContainerProfile")
-	// procDeriveAppContainerSidFromAppContainerName = userenv.NewProc("DeriveAppContainerSidFromAppContainerName")
-	procCreateProcessAsUser   = advapi32.NewProc("CreateProcessAsUserW")
-	procCreateRestrictedToken = advapi32.NewProc("CreateRestrictedToken")
-	procCreatePipe            = kernel32.NewProc("CreatePipe")
-	procSetHandleInformation  = kernel32.NewProc("SetHandleInformation")
-	procCloseHandle           = kernel32.NewProc("CloseHandle")
-	procReadFile              = kernel32.NewProc("ReadFile")
-	// procFreeSid                                   = advapi32.NewProc("FreeSid")
+	advapi32                                      = windows.NewLazyDLL("advapi32.dll")
+	procCreateRestrictedToken                     = advapi32.NewProc("CreateRestrictedToken")
+	userenv                                       = windows.NewLazyDLL("userenv.dll")
+	procCreateAppContainerProfile                 = userenv.NewProc("CreateAppContainerProfile")
+	procDeleteAppContainerProfile                 = userenv.NewProc("DeleteAppContainerProfile")
+	procDeriveAppContainerSidFromAppContainerName = userenv.NewProc("DeriveAppContainerSidFromAppContainerName")
 )
 
 const (
-	LOGON32_LOGON_INTERACTIVE = 2
-	LOGON32_PROVIDER_DEFAULT  = 0
-	CREATE_NEW_CONSOLE        = 0x00000010
-	// CREATE_NO_WINDOW          = 0x08000000
-	// STARTF_USESTDHANDLES      = 0x00000100
-	// CREATE_SUSPENDED          = 0x00000004
-	STARTF_USESHOWWINDOW = 0x00000001
-	SW_HIDE              = 0
-	HANDLE_FLAG_INHERIT  = 0x00000001
+	PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES = 0x00020005
+	DISABLE_MAX_PRIVILEGE                       = 0x1
+	LUA_TOKEN                                   = 0x4
+	WRITE_RESTRICTED                            = 0x8
 
-	// Security attributes for read-only access
-	DISABLE_MAX_PRIVILEGE = 0x1
-	SANDBOX_INERT         = 0x2
-	LUA_TOKEN             = 0x4
-	WRITE_RESTRICTED      = 0x8
+	// File System Access
+	WELL_KNOWN_SID_CAPABILITY_DOCUMENTS_LIBRARY = "S-1-15-3-1" // Documents folder
+	WELL_KNOWN_SID_CAPABILITY_PICTURES_LIBRARY  = "S-1-15-3-2" // Pictures folder
+	WELL_KNOWN_SID_CAPABILITY_VIDEOS_LIBRARY    = "S-1-15-3-3" // Videos folder
+	WELL_KNOWN_SID_CAPABILITY_MUSIC_LIBRARY     = "S-1-15-3-4" // Music folder
+	WELL_KNOWN_SID_CAPABILITY_REMOVABLE_STORAGE = "S-1-15-3-5" // USB drives, etc.
 
-	INVALID_HANDLE_VALUE = ^uintptr(0)
+	// Network Access
+	WELL_KNOWN_SID_CAPABILITY_INTERNET_CLIENT               = "S-1-15-3-1" // Outbound internet
+	WELL_KNOWN_SID_CAPABILITY_INTERNET_CLIENT_SERVER        = "S-1-15-3-2" // Inbound + outbound internet
+	WELL_KNOWN_SID_CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER = "S-1-15-3-3" // Local network
+
+	// System Access
+	WELL_KNOWN_SID_CAPABILITY_SHARED_USER_CERTIFICATES  = "S-1-15-3-9"  // Certificate access
+	WELL_KNOWN_SID_CAPABILITY_ENTERPRISE_AUTHENTICATION = "S-1-15-3-10" // Enterprise auth
+
+	// Registry Access (limited)
+	WELL_KNOWN_SID_CAPABILITY_REGISTRY_READ = "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
 )
 
 type SECURITY_CAPABILITIES struct {
 	AppContainerSid *windows.SID
-	Capabilities    *SID_AND_ATTRIBUTES
+	Capabilities    *windows.SIDAndAttributes
 	CapabilityCount uint32
 	Reserved        uint32
-}
-
-type SID_AND_ATTRIBUTES struct {
-	Sid        *windows.SID
-	Attributes uint32
-}
-
-type SECURITY_ATTRIBUTES struct {
-	NLength              uint32
-	LpSecurityDescriptor unsafe.Pointer
-	BInheritHandle       int32
-}
-
-type STARTUPINFO struct {
-	Cb              uint32
-	LpReserved      *uint16
-	LpDesktop       *uint16
-	LpTitle         *uint16
-	DwX             uint32
-	DwY             uint32
-	DwXSize         uint32
-	DwYSize         uint32
-	DwXCountChars   uint32
-	DwYCountChars   uint32
-	DwFillAttribute uint32
-	DwFlags         uint32
-	WShowWindow     uint16
-	CbReserved2     uint16
-	LpReserved2     *byte
-	HStdInput       windows.Handle
-	HStdOutput      windows.Handle
-	HStdError       windows.Handle
-}
-
-type PROCESS_INFORMATION struct {
-	HProcess    windows.Handle
-	HThread     windows.Handle
-	DwProcessId uint32
-	DwThreadId  uint32
 }
 
 func getSandbox(ctx context.Context) (*genai.OptionsTools, error) {
 	return &genai.OptionsTools{
 		Tools: []genai.ToolDef{
 			{
-				Name:        "cmd.exe",
-				Description: "Runs the requested command CreateProcess on the Windows computer and returns the output",
+				Name:        "powershell",
+				Description: "Runs the requested command via PowerShell on the Windows computer and returns the output",
 				Callback: func(ctx context.Context, args *bashArguments) (string, error) {
-					out, err := runWithRestrictedAppContainer(args.CommandLine)
+					tmpFile, err := os.CreateTemp("", "ask_script_*.ps1")
+					if err != nil {
+						return "", fmt.Errorf("failed to create temp file: %v", err)
+					}
+					scriptPath := tmpFile.Name()
+					defer os.Remove(scriptPath)
+					if _, err := tmpFile.WriteString(args.CommandLine); err != nil {
+						tmpFile.Close()
+						return "", fmt.Errorf("failed to write to temp file: %v", err)
+					}
+					tmpFile.Close()
+					psCmd := fmt.Sprintf("powershell.exe -ExecutionPolicy Bypass -File \"%s\"", scriptPath)
+					out, err := runWithAppContainer(psCmd)
 					slog.DebugContext(ctx, "bash", "command", args.CommandLine, "output", string(out), "err", err)
 					return string(out), err
 				},
@@ -115,18 +86,136 @@ func getSandbox(ctx context.Context) (*genai.OptionsTools, error) {
 	}, nil
 }
 
-func newStr16(s string) *uint16 {
-	p, err := windows.UTF16PtrFromString(s)
-	if err != nil {
-		panic(err)
+func runWithAppContainer(cmdLine string) (string, error) {
+	var token windows.Token
+	if err := windows.OpenProcessToken(windows.CurrentProcess(), windows.TOKEN_ALL_ACCESS, &token); err != nil {
+		return "", fmt.Errorf("failed to open process token: %v", err)
 	}
-	return p
+	defer token.Close()
+	// https://learn.microsoft.com/en-us/windows/win32/api/securitybaseapi/nf-securitybaseapi-createrestrictedtoken
+	var restrictedToken windows.Token
+	ret, _, err := procCreateRestrictedToken.Call(
+		uintptr(token),
+		DISABLE_MAX_PRIVILEGE|LUA_TOKEN, // |WRITE_RESTRICTED
+		0,                               // DisableSidCount
+		0,                               // SidsToDisable
+		0,                               // DeletePrivilegeCount
+		0,                               // PrivilegesToDelete
+		0,                               // RestrictedSidCount
+		0,                               // SidsToRestrict
+		uintptr(unsafe.Pointer(&restrictedToken)),
+	)
+	if ret == 0 {
+		return "", fmt.Errorf("CreateRestrictedToken failed: %v", err)
+	}
+	defer windows.CloseHandle(windows.Handle(restrictedToken))
+
+	var attrList *windows.ProcThreadAttributeList
+	if true {
+		caps := []string{
+			WELL_KNOWN_SID_CAPABILITY_DOCUMENTS_LIBRARY,
+			WELL_KNOWN_SID_CAPABILITY_PICTURES_LIBRARY,
+			WELL_KNOWN_SID_CAPABILITY_VIDEOS_LIBRARY,
+			WELL_KNOWN_SID_CAPABILITY_MUSIC_LIBRARY,
+			WELL_KNOWN_SID_CAPABILITY_REMOVABLE_STORAGE,
+			WELL_KNOWN_SID_CAPABILITY_INTERNET_CLIENT,
+			WELL_KNOWN_SID_CAPABILITY_INTERNET_CLIENT_SERVER,
+			WELL_KNOWN_SID_CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER,
+		}
+		sidAndAttrs, err := createCapabilitySIDs(caps)
+		if err != nil {
+			return "", err
+		}
+		profileName := "ReadOnlyAppContainer"
+		if err := createContainer(windows.StringToUTF16Ptr(profileName)); err != nil {
+			return "", err
+		}
+		defer procDeleteAppContainerProfile.Call(uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(profileName))))
+		appContainerSid, err := createAppContainerSid(profileName)
+		if err != nil {
+			return "", fmt.Errorf("failed to get AppContainer SID: %v", err)
+		}
+		secCaps := SECURITY_CAPABILITIES{
+			AppContainerSid: appContainerSid,
+			Capabilities:    &sidAndAttrs[0],
+			CapabilityCount: uint32(len(sidAndAttrs)),
+		}
+		attrListCtr, err := setupAppContainerAttributes(&secCaps)
+		if err != nil {
+			return "", fmt.Errorf("failed to setup attribute list: %v", err)
+		}
+		attrList = attrListCtr.List()
+		defer attrListCtr.Delete()
+	}
+
+	// There isn't much point into separating stdout and stderr to send it back to the LLM, so merge both.
+	stdoutRead, stdoutWrite, err := createPipe()
+	if err != nil {
+		return "", fmt.Errorf("failed to create stdout pipe: %v", err)
+	}
+	defer windows.CloseHandle(stdoutRead)
+	defer windows.CloseHandle(stdoutWrite)
+
+	si := windows.StartupInfoEx{
+		StartupInfo: windows.StartupInfo{
+			Cb:        uint32(unsafe.Sizeof(windows.StartupInfoEx{})),
+			Flags:     windows.STARTF_USESHOWWINDOW | windows.STARTF_USESTDHANDLES,
+			StdOutput: windows.Handle(stdoutWrite),
+			StdErr:    windows.Handle(stdoutWrite),
+		},
+		ProcThreadAttributeList: attrList,
+	}
+	pi := windows.ProcessInformation{}
+	var flag uint32 = windows.CREATE_NEW_CONSOLE | windows.EXTENDED_STARTUPINFO_PRESENT
+	if err = windows.CreateProcessAsUser(restrictedToken, nil, windows.StringToUTF16Ptr(cmdLine), nil, nil, true, flag, nil, nil, &si.StartupInfo, &pi); err != nil {
+		return "", err
+	}
+	defer windows.CloseHandle(pi.Process)
+	defer windows.CloseHandle(pi.Thread)
+	// Close write handles in parent process to avoid blocking.
+	windows.CloseHandle(stdoutWrite)
+	stdout := readFromPipe(stdoutRead)
+	windows.WaitForSingleObject(pi.Process, windows.INFINITE)
+	var exitCode uint32
+	windows.GetExitCodeProcess(pi.Process, &exitCode)
+	err = nil
+	if exitCode != 0 {
+		if exitCode > 255 {
+			err = fmt.Errorf("exit code 0x%08x", exitCode)
+		} else {
+			err = fmt.Errorf("exit code %d", exitCode)
+		}
+	}
+	return stdout, err
+}
+
+func createPipe() (windows.Handle, windows.Handle, error) {
+	sa := windows.SecurityAttributes{Length: uint32(unsafe.Sizeof(windows.SecurityAttributes{})), InheritHandle: 1}
+	var r, w windows.Handle
+	if err := windows.CreatePipe(&r, &w, &sa, 0); err != nil {
+		return 0, 0, fmt.Errorf("CreatePipe failed: %w", err)
+	}
+	// Make sure the read handle is not inherited.
+	windows.SetHandleInformation(r, windows.HANDLE_FLAG_INHERIT, 0)
+	return r, w, nil
+}
+
+func readFromPipe(handle windows.Handle) string {
+	buf := bytes.Buffer{}
+	buffer := make([]byte, 4096)
+	var bytesRead uint32
+	for {
+		if err := windows.ReadFile(handle, buffer, &bytesRead, nil); err != nil {
+			break
+		}
+		buf.Write(buffer[:bytesRead])
+	}
+	return buf.String()
 }
 
 func createContainer(profileNamePtr *uint16) error {
-	// Create App Container Profile with NO capabilities (most restrictive)
-	displayNamePtr := newStr16("Read-Only App Container")
-	descriptionPtr := newStr16("Highly restricted read-only App Container")
+	displayNamePtr := windows.StringToUTF16Ptr("Read-Only App Container")
+	descriptionPtr := windows.StringToUTF16Ptr("Highly restricted read-only App Container")
 	var appContainerSid *windows.SID
 	ret, _, err := procCreateAppContainerProfile.Call(
 		uintptr(unsafe.Pointer(profileNamePtr)),
@@ -151,172 +240,53 @@ func createContainer(profileNamePtr *uint16) error {
 			)
 		}
 		if ret != 0 {
-			return fmt.Errorf("CreateAppContainerProfile failed with code: 0x%x, error: %v", ret, err)
+			return fmt.Errorf("CreateAppContainerProfile failed with code: 0x%08x, error: %w", ret, err)
 		}
 	}
 	return nil
 }
 
-func runWithRestrictedAppContainer(cmdLine string) (string, error) {
-	profileNamePtr := newStr16("ReadOnlyAppContainer")
-	if err := createContainer(profileNamePtr); err != nil {
-		return "", err
-	}
-	// Get current user token
-	var token windows.Token
-	if err := windows.OpenProcessToken(windows.CurrentProcess(), windows.TOKEN_ALL_ACCESS, &token); err != nil {
-		return "", fmt.Errorf("failed to open process token: %v", err)
-	}
-	defer token.Close()
-
-	stdoutRead, stdoutWrite, err := createPipe()
-	if err != nil {
-		return "", fmt.Errorf("failed to create stdout pipe: %v", err)
-	}
-	defer procCloseHandle.Call(uintptr(stdoutRead))
-	defer procCloseHandle.Call(uintptr(stdoutWrite))
-	stderrRead, stderrWrite, err := createPipe()
-	if err != nil {
-		return "", fmt.Errorf("failed to create stderr pipe: %v", err)
-	}
-	defer procCloseHandle.Call(uintptr(stderrRead))
-	defer procCloseHandle.Call(uintptr(stderrWrite))
-
-	// Make sure the read handles are not inherited
-	procSetHandleInformation.Call(uintptr(stdoutRead), HANDLE_FLAG_INHERIT, 0)
-	procSetHandleInformation.Call(uintptr(stderrRead), HANDLE_FLAG_INHERIT, 0)
-
-	// Create a restricted token with minimal privileges
-	var restrictedToken windows.Handle
-	ret, _, err := procCreateRestrictedToken.Call(
-		uintptr(token),
-		DISABLE_MAX_PRIVILEGE|LUA_TOKEN|WRITE_RESTRICTED, // Maximum restrictions
-		0, // DisableSidCount
-		0, // SidsToDisable
-		0, // DeletePrivilegeCount
-		0, // PrivilegesToDelete
-		0, // RestrictedSidCount
-		0, // SidsToRestrict
-		uintptr(unsafe.Pointer(&restrictedToken)),
+func createAppContainerSid(profileName string) (*windows.SID, error) {
+	var sid *windows.SID
+	ret, _, err := procDeriveAppContainerSidFromAppContainerName.Call(
+		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(profileName))),
+		uintptr(unsafe.Pointer(&sid)),
 	)
-	if ret == 0 {
-		return "", fmt.Errorf("CreateRestrictedToken failed: %v", err)
+	if ret != 0 {
+		return nil, fmt.Errorf("DeriveAppContainerSidFromAppContainerName failed: %w", err)
 	}
-	defer procCloseHandle.Call(uintptr(restrictedToken))
-	/*
-		// Setup security capabilities with App Container SID
-		secCaps := SECURITY_CAPABILITIES{
-			AppContainerSid: appContainerSid,
-			Capabilities:    nil, // No additional capabilities
-			CapabilityCount: 0,   // Zero capabilities for maximum restriction
-			Reserved:        0,
-		}
-	*/
-	si := STARTUPINFO{
-		Cb:          uint32(unsafe.Sizeof(STARTUPINFO{})),
-		DwFlags:     STARTF_USESHOWWINDOW,
-		WShowWindow: SW_HIDE,
-		HStdInput:   windows.Handle(windows.InvalidHandle),
-		HStdOutput:  stdoutWrite,
-		HStdError:   stderrWrite,
-	}
-	stdoutChan := make(chan string, 100)
-	stderrChan := make(chan string, 100)
-	go readFromPipe(stdoutRead, stdoutChan, "[STDOUT] ")
-	go readFromPipe(stderrRead, stderrChan, "[STDERR] ")
-
-	var pi PROCESS_INFORMATION
-	// Create process with App Container and restricted token
-	// Using EXTENDED_STARTUPINFO would allow us to pass SECURITY_CAPABILITIES
-	// but we'll use the restricted token approach for simplicity
-	ret, _, err = procCreateProcessAsUser.Call(
-		uintptr(restrictedToken), // Use restricted token
-		0,                        // lpApplicationName
-		uintptr(unsafe.Pointer(newStr16(cmdLine))),
-		0,                  // lpProcessAttributes
-		0,                  // lpThreadAttributes
-		0,                  // bInheritHandles
-		CREATE_NEW_CONSOLE, // Create flags
-		0,                  // lpEnvironment
-		0,                  // lpCurrentDirectory
-		uintptr(unsafe.Pointer(&si)),
-		uintptr(unsafe.Pointer(&pi)),
-	)
-	if ret == 0 {
-		return "", fmt.Errorf("CreateProcessAsUser failed: %v", err)
-	}
-
-	// Close write handles in parent process to avoid blocking
-	procCloseHandle.Call(uintptr(stdoutWrite))
-	procCloseHandle.Call(uintptr(stderrWrite))
-
-	mu := sync.Mutex{}
-	buf := bytes.Buffer{}
-	outputDone := make(chan bool, 2)
-	go func() {
-		for output := range stdoutChan {
-			mu.Lock()
-			buf.WriteString(output)
-			mu.Unlock()
-		}
-		outputDone <- true
-	}()
-	go func() {
-		for output := range stderrChan {
-			mu.Lock()
-			buf.WriteString(output)
-			mu.Unlock()
-		}
-		outputDone <- true
-	}()
-
-	windows.WaitForSingleObject(pi.HProcess, windows.INFINITE)
-
-	<-outputDone
-	<-outputDone
-
-	var exitCode uint32
-	windows.GetExitCodeProcess(pi.HProcess, &exitCode)
-	procCloseHandle.Call(uintptr(pi.HProcess))
-	procCloseHandle.Call(uintptr(pi.HThread))
-	procDeleteAppContainerProfile.Call(uintptr(unsafe.Pointer(profileNamePtr)))
-	return buf.String(), nil
+	return sid, nil
 }
 
-func createPipe() (readHandle, writeHandle windows.Handle, err error) {
-	sa := SECURITY_ATTRIBUTES{
-		NLength:        uint32(unsafe.Sizeof(SECURITY_ATTRIBUTES{})),
-		BInheritHandle: 1, // Allow inheritance
+// https://github.com/rancher-sandbox/rancher-desktop/blob/main/src/go/rdctl/pkg/process/process_windows.go shows job object use.
+// https://blahcat.github.io/2020-12-29-cheap-sandboxing-with-appcontainers/
+func setupAppContainerAttributes(secCaps *SECURITY_CAPABILITIES) (*windows.ProcThreadAttributeListContainer, error) {
+	// TODO: Testing with zero.
+	attributeList, err := windows.NewProcThreadAttributeList(0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to NewProcThreadAttributeList: %w", err)
 	}
-	var r, w uintptr
-	ret, _, err := procCreatePipe.Call(
-		uintptr(unsafe.Pointer(&r)),
-		uintptr(unsafe.Pointer(&w)),
-		uintptr(unsafe.Pointer(&sa)),
-		0, // Default buffer size
-	)
-	if ret == 0 {
-		return 0, 0, fmt.Errorf("CreatePipe failed: %v", err)
+	if false {
+		// TODO: Another good idea is PROC_THREAD_ATTRIBUTE_HANDLE_LIST
+		if err = attributeList.Update(PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, unsafe.Pointer(secCaps), unsafe.Sizeof(*secCaps)); err != nil {
+			return nil, fmt.Errorf("failed to update: %w", err)
+		}
 	}
-	return windows.Handle(r), windows.Handle(w), nil
+	return attributeList, err
 }
 
-func readFromPipe(handle windows.Handle, output chan<- string, prefix string) {
-	defer close(output)
-	buffer := make([]byte, 4096)
-	var bytesRead uint32
-	for {
-		ret, _, _ := procReadFile.Call(
-			uintptr(handle),
-			uintptr(unsafe.Pointer(&buffer[0])),
-			uintptr(len(buffer)),
-			uintptr(unsafe.Pointer(&bytesRead)),
-			0, // lpOverlapped
-		)
-		if ret == 0 || bytesRead == 0 {
-			break
-		}
-		data := string(buffer[:bytesRead])
-		output <- fmt.Sprintf("%s%s", prefix, data)
+func createCapabilitySIDs(sidStrings []string) ([]windows.SIDAndAttributes, error) {
+	if len(sidStrings) == 0 {
+		return nil, nil
 	}
+	capabilities := make([]windows.SIDAndAttributes, len(sidStrings))
+	for i, sidString := range sidStrings {
+		var sid *windows.SID
+		err := windows.ConvertStringSidToSid(windows.StringToUTF16Ptr(sidString), &sid)
+		if err != nil {
+			return nil, fmt.Errorf("ConvertStringSidToSid failed for %s: %w", sidString, err)
+		}
+		capabilities[i] = windows.SIDAndAttributes{Sid: sid}
+	}
+	return capabilities, nil
 }

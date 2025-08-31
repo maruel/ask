@@ -29,7 +29,7 @@ go install github.com/maruel/ask/cmd/...@latest
 Have Go install the tool while running it. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys).
 
 ```bash
-go run github.com/maruel/ask@latest \
+go run github.com/maruel/ask/cmd/ask@latest \
     -p groq \
     "Give an advice that sounds good but is bad in practice"
 ```

@@ -5,6 +5,9 @@
 // Tool ask.
 package main
 
+//go:generate go run github.com/akavel/rsrc@latest -manifest ask.manifest -arch amd64
+//go:generate go run github.com/akavel/rsrc@latest -manifest ask.manifest -arch arm64
+
 import (
 	"context"
 	"fmt"
