@@ -6,8 +6,8 @@ Extremely lightweight yet powerful AI tool.
 - Generation: [images](#image-generation), [videos](#video-generation).
 - Tools:
     - Web search for anthropic, gemini, openai and perplexity! Use `-web` 🕸️
-    - On linux with bubblewrap (`bwrap`) installed, a `bash` tool mounting the file system as
-      read-only is provided.
+    - `bash` via sandboxing (sandbox-exec on macOS, bubblewrap on linux), mounting the file system as
+      read-only.
 - Works on Windows, macOS and Linux.
 - No need to fight with Python or Node.
 - For short prompts:
@@ -193,7 +193,7 @@ This works with anthropic, gemini, openai and perplexity!
 ### Bash
 
 ➡ Leverage `bash` tool to enable the model to read local files. Only available on
-Linux. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
+macOS and Linux. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
 
 ```bash
 ask -p anthropic -bash \

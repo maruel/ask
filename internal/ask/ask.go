@@ -18,7 +18,6 @@ import (
 	"maps"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -250,33 +249,13 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 	}
 
 	useTools := false
-	// When bubblewrap is installed, use it to run bash.
-	// On Ubuntu, get it with: sudo apt install bubblewrap
 	if useBash {
-		if bwrapPath, err := exec.LookPath("bwrap"); err == nil {
+		if o, err := getSandbox(ctx); o != nil {
 			useTools = true
-			o := &genai.OptionsTools{
-				Tools: []genai.ToolDef{
-					{
-						Name:        "bash",
-						Description: "Runs the requested command via bash on the computer and returns the output",
-						Callback: func(ctx context.Context, args *bashArguments) (string, error) {
-							v := []string{"--ro-bind", "/", "/", "--tmpfs", "/tmp", "--dev", "/dev", "--proc", "/proc", "--", "bash", "-c", args.CommandLine}
-							cmd := exec.CommandContext(ctx, bwrapPath, v...)
-							// Increases odds of success on non-English installation.
-							cmd.Env = append(os.Environ(), "LANG=C")
-							out, err3 := cmd.Output()
-							slog.DebugContext(ctx, "bash", "command", args.CommandLine, "output", string(out), "err", err3)
-							return string(out), err3
-						},
-					},
-				},
-				WebSearch: useWeb,
-			}
+			o.WebSearch = useWeb
 			opts = append(opts, o)
-			slog.DebugContext(ctx, "bwrap", "path", bwrapPath)
 		} else {
-			slog.DebugContext(ctx, "bwrap", "not found", err)
+			fmt.Fprintf(os.Stderr, "warning: could not find sandbox: %v\n", err)
 		}
 	}
 	if !useTools && useWeb {
