@@ -306,13 +306,13 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 				mode = "text"
 				if !strings.HasSuffix(last, "\n\n") {
 					if !strings.HasSuffix(last, "\n") {
-						io.WriteString(w, "\n")
+						_, _ = io.WriteString(w, "\n")
 					}
-					io.WriteString(w, "\n")
+					_, _ = io.WriteString(w, "\n")
 				}
-				io.WriteString(w, hiblack+"Answer: "+reset)
+				_, _ = io.WriteString(w, hiblack+"Answer: "+reset)
 			}
-			io.WriteString(w, f.TextFragment)
+			_, _ = io.WriteString(w, f.TextFragment)
 			last = f.TextFragment
 			continue
 		}
@@ -324,13 +324,13 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 				mode = "thinking"
 				if last != "" && !strings.HasSuffix(last, "\n\n") {
 					if !strings.HasSuffix(last, "\n") {
-						io.WriteString(w, "\n")
+						_, _ = io.WriteString(w, "\n")
 					}
-					io.WriteString(w, "\n")
+					_, _ = io.WriteString(w, "\n")
 				}
-				io.WriteString(w, hiblack+"Reasoning: "+reset)
+				_, _ = io.WriteString(w, hiblack+"Reasoning: "+reset)
 			}
-			io.WriteString(w, f.ReasoningFragment)
+			_, _ = io.WriteString(w, f.ReasoningFragment)
 			last = f.ReasoningFragment
 			continue
 		}
@@ -339,11 +339,11 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 				mode = "citation"
 				if last != "" && !strings.HasSuffix(last, "\n\n") {
 					if !strings.HasSuffix(last, "\n") {
-						io.WriteString(w, "\n")
+						_, _ = io.WriteString(w, "\n")
 					}
-					io.WriteString(w, "\n")
+					_, _ = io.WriteString(w, "\n")
 				}
-				io.WriteString(w, hiblack+"Citation:\n"+reset)
+				_, _ = io.WriteString(w, hiblack+"Citation:\n"+reset)
 			}
 			for _, src := range f.Citation.Sources {
 				if src.Type == "web" {
@@ -357,7 +357,7 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 		}
 	}
 	if !strings.HasSuffix(last, "\n") {
-		io.WriteString(w, "\n")
+		_, _ = io.WriteString(w, "\n")
 	}
 
 	var err error
