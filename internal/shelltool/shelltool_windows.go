@@ -135,9 +135,9 @@ func runWithAppContainer(cmdLine string) (string, error) {
 			Capabilities:    &sidAndAttrs[0],
 			CapabilityCount: uint32(len(sidAndAttrs)),
 		}
-		attrListCtr, err := setupAppContainerAttributes(&secCaps)
-		if err != nil {
-			return "", fmt.Errorf("failed to setup attribute list: %v", err)
+		attrListCtr, err2 := setupAppContainerAttributes(&secCaps)
+		if err2 != nil {
+			return "", fmt.Errorf("failed to setup attribute list: %v", err2)
 		}
 		attrList = attrListCtr.List()
 		defer attrListCtr.Delete()

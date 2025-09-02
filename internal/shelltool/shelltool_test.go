@@ -16,7 +16,7 @@ import (
 
 func TestGetSandbox(t *testing.T) {
 	ipV4 := regexp.MustCompile(`\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}`)
-	t.Run("with network", func(t *testing.T) {
+	t.Run("with network access", func(t *testing.T) {
 		opts, err := getShellTool(true)
 		if err != nil {
 			t.Fatal(err)
@@ -45,6 +45,9 @@ func TestGetSandbox(t *testing.T) {
 		})
 		t.Run("network", func(t *testing.T) {
 			script := "curl -sS ifconfig.co\n"
+			if runtime.GOOS == "windows" {
+				script = "curl ifconfig.co\n"
+			}
 			b, _ := json.Marshal(&shellArguments{Script: script})
 			msg := genai.Message{Replies: []genai.Reply{{ToolCall: genai.ToolCall{Name: opts.Tools[0].Name, Arguments: string(b)}}}}
 			res, err := msg.DoToolCalls(t.Context(), opts.Tools)
@@ -56,7 +59,7 @@ func TestGetSandbox(t *testing.T) {
 			}
 		})
 	})
-	t.Run("no network", func(t *testing.T) {
+	t.Run("no network access", func(t *testing.T) {
 		opts, err := getShellTool(false)
 		if err != nil {
 			t.Fatal(err)
@@ -66,6 +69,9 @@ func TestGetSandbox(t *testing.T) {
 		}
 		t.Run("network", func(t *testing.T) {
 			script := "curl -sS ifconfig.co\n"
+			if runtime.GOOS == "windows" {
+				script = "curl ifconfig.co\n"
+			}
 			b, _ := json.Marshal(&shellArguments{Script: script})
 			msg := genai.Message{Replies: []genai.Reply{{ToolCall: genai.ToolCall{Name: opts.Tools[0].Name, Arguments: string(b)}}}}
 			res, err := msg.DoToolCalls(t.Context(), opts.Tools)

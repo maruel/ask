@@ -36,10 +36,9 @@ const sb = `(version 1)
 (allow file-write* (subpath "/tmp"))
 `
 
-const sbNoNetwork = `(version 1)
-; Deny all network access
-(deny network*)
-`
+const sbAllowNetwork = "(allow network*)\n"
+
+const sbNoNetwork = "(deny network*)\n"
 
 func getShellTool(allowNetwork bool) (*genai.OptionsTools, error) {
 	if _, err := exec.LookPath("/usr/bin/sandbox-exec"); err != nil {
@@ -55,7 +54,9 @@ func getShellTool(allowNetwork bool) (*genai.OptionsTools, error) {
 				Description: "Writes the script to a file, executes it via zsh on the macOS computer, and returns the output",
 				Callback: func(ctx context.Context, args *shellArguments) (string, error) {
 					sandbox := sb
-					if !allowNetwork {
+					if allowNetwork {
+						sandbox += sbAllowNetwork
+					} else {
 						sandbox += sbNoNetwork
 					}
 					askSB, err := writeTempFile("ask.*.sb", sandbox)
