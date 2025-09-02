@@ -21,6 +21,9 @@ func getShellTool() (*genai.OptionsTools, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bwrap not found (install with sudo apt install bubblewrap): %w", err)
 	}
+	if _, err := exec.LookPath("/bin/bash"); err != nil {
+		return nil, fmt.Errorf("bash not found: %w", err)
+	}
 	return &genai.OptionsTools{
 		Tools: []genai.ToolDef{
 			{
@@ -39,7 +42,7 @@ func getShellTool() (*genai.OptionsTools, error) {
 						"--proc", "/proc",
 						"--bind", script, script,
 						"--",
-						"/usr/bin/bash", script,
+						"/bin/bash", script,
 					}
 					cmd := exec.CommandContext(ctx, bwrapPath, v...)
 					// Increases odds of success on non-English installation.

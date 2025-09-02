@@ -58,7 +58,7 @@ type SECURITY_CAPABILITIES struct {
 	Reserved        uint32
 }
 
-func getSandbox() (*genai.OptionsTools, error) {
+func getShellTool() (*genai.OptionsTools, error) {
 	return &genai.OptionsTools{
 		Tools: []genai.ToolDef{
 			{
