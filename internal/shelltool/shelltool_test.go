@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"regexp"
 	"runtime"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
@@ -24,6 +26,7 @@ func TestGetSandbox(t *testing.T) {
 		if opts == nil {
 			t.Fatal("excepted opts")
 		}
+
 		t.Run("stderr", func(t *testing.T) {
 			script, want := "", ""
 			if runtime.GOOS == "windows" {
@@ -37,12 +40,41 @@ func TestGetSandbox(t *testing.T) {
 			msg := genai.Message{Replies: []genai.Reply{{ToolCall: genai.ToolCall{Name: opts.Tools[0].Name, Arguments: string(b)}}}}
 			res, err := msg.DoToolCalls(t.Context(), opts.Tools)
 			if err != nil {
+				t.Log(res.ToolCallResults)
 				t.Fatalf("Got error: %v", err)
 			}
 			if got := res.ToolCallResults[0].Result; got != want {
 				t.Fatalf("unexpected output\nwant: %q\ngot:  %q", want, got)
 			}
 		})
+
+		t.Run("subprocess", func(t *testing.T) {
+			script := "/bin/ls\n"
+			if runtime.GOOS == "windows" {
+				t.Skip("TODO")
+			}
+			want := []string{
+				"shelltool.go",
+				"shelltool_darwin.go",
+				"shelltool_other.go",
+				"shelltool_test.go",
+				"shelltool_windows.go",
+			}
+			sort.Strings(want)
+			b, _ := json.Marshal(&shellArguments{Script: script})
+			msg := genai.Message{Replies: []genai.Reply{{ToolCall: genai.ToolCall{Name: opts.Tools[0].Name, Arguments: string(b)}}}}
+			res, err := msg.DoToolCalls(t.Context(), opts.Tools)
+			if err != nil {
+				t.Log(res.ToolCallResults)
+				t.Fatalf("Got error: %v", err)
+			}
+			got := strings.Fields(strings.TrimSpace(res.ToolCallResults[0].Result))
+			sort.Strings(got)
+			if !slices.Equal(got, want) {
+				t.Fatalf("unexpected output\nwant: %q\ngot:  %q", want, got)
+			}
+		})
+
 		t.Run("network", func(t *testing.T) {
 			script := "curl -sS ifconfig.co\n"
 			if runtime.GOOS == "windows" {
@@ -52,6 +84,7 @@ func TestGetSandbox(t *testing.T) {
 			msg := genai.Message{Replies: []genai.Reply{{ToolCall: genai.ToolCall{Name: opts.Tools[0].Name, Arguments: string(b)}}}}
 			res, err := msg.DoToolCalls(t.Context(), opts.Tools)
 			if err != nil {
+				t.Log(res.ToolCallResults)
 				t.Fatalf("Got error: %v", err)
 			}
 			if got := strings.TrimSpace(res.ToolCallResults[0].Result); !ipV4.MatchString(got) {
@@ -59,6 +92,7 @@ func TestGetSandbox(t *testing.T) {
 			}
 		})
 	})
+
 	t.Run("no network access", func(t *testing.T) {
 		opts, err := getShellTool(false)
 		if err != nil {
@@ -67,6 +101,28 @@ func TestGetSandbox(t *testing.T) {
 		if opts == nil {
 			t.Fatal("excepted opts")
 		}
+
+		t.Run("stderr", func(t *testing.T) {
+			script, want := "", ""
+			if runtime.GOOS == "windows" {
+				script = "Write-Output \"hi\"\n[System.Console]::Error.WriteLine(\"hello\")\n"
+				want = "hi\r\nhello\r\n"
+			} else {
+				script = "echo hi\necho hello >&2\n"
+				want = "hi\nhello\n"
+			}
+			b, _ := json.Marshal(&shellArguments{Script: script})
+			msg := genai.Message{Replies: []genai.Reply{{ToolCall: genai.ToolCall{Name: opts.Tools[0].Name, Arguments: string(b)}}}}
+			res, err := msg.DoToolCalls(t.Context(), opts.Tools)
+			if err != nil {
+				t.Log(res.ToolCallResults)
+				t.Fatalf("Got error: %v", err)
+			}
+			if got := res.ToolCallResults[0].Result; got != want {
+				t.Fatalf("unexpected output\nwant: %q\ngot:  %q", want, got)
+			}
+		})
+
 		t.Run("network", func(t *testing.T) {
 			script := "curl -sS ifconfig.co\n"
 			if runtime.GOOS == "windows" {

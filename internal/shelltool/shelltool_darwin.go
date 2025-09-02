@@ -14,13 +14,47 @@ import (
 	"github.com/maruel/genai"
 )
 
-const sb = `(version 1)
+const sbAllowNetwork = `(version 1)
+
+; Default policy: deny everything
+(deny default)
+
+; Allow process execution
+(allow process-exec*)
+(allow process-fork)
+(allow sysctl-read)
+(allow mach-lookup)
+(allow mach-task-name)
+
+; Allow all network access
+(allow network*)
+(allow system-socket)
+(allow network-outbound (remote tcp "*:*"))
+(allow network-outbound (remote udp "*:*"))
+(allow network-outbound (remote ip "*:*"))
+(allow system-info)
+(allow file-read-metadata)
+
+; Allow read-only access to files
+(allow file-read*)
+
+; Deny all file write operations
+(deny file-write*)
+
+; Allow write to /tmp
+(allow file-write* (subpath "/tmp"))
+`
+
+const sbNoNetwork = `(version 1)
 
 ; Default policy: deny everything
 (deny default)
 
 ; Allow process execution
 (allow process-exec)
+
+; Deny all network access
+(deny network*)
 
 ; Allow read-only access to files
 (allow file-read*)
@@ -36,10 +70,6 @@ const sb = `(version 1)
 (allow file-write* (subpath "/tmp"))
 `
 
-const sbAllowNetwork = "(allow network*)\n"
-
-const sbNoNetwork = "(deny network*)\n"
-
 func getShellTool(allowNetwork bool) (*genai.OptionsTools, error) {
 	if _, err := exec.LookPath("/usr/bin/sandbox-exec"); err != nil {
 		return nil, fmt.Errorf("sandbox-exec not found: %w", err)
@@ -53,11 +83,9 @@ func getShellTool(allowNetwork bool) (*genai.OptionsTools, error) {
 				Name:        "zsh",
 				Description: "Writes the script to a file, executes it via zsh on the macOS computer, and returns the output",
 				Callback: func(ctx context.Context, args *shellArguments) (string, error) {
-					sandbox := sb
+					sandbox := sbNoNetwork
 					if allowNetwork {
-						sandbox += sbAllowNetwork
-					} else {
-						sandbox += sbNoNetwork
+						sandbox = sbAllowNetwork
 					}
 					askSB, err := writeTempFile("ask.*.sb", sandbox)
 					if err != nil {
