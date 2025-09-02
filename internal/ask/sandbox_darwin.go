@@ -43,7 +43,7 @@ func getShellTool() (*genai.OptionsTools, error) {
 	if _, err := exec.LookPath("/usr/bin/sandbox-exec"); err != nil {
 		return nil, fmt.Errorf("sandbox-exec not found: %w", err)
 	}
-	if _, err := exec.LookPath("/usr/zsh"); err != nil {
+	if _, err := exec.LookPath("/bin/zsh"); err != nil {
 		return nil, fmt.Errorf("zsh not found: %w", err)
 	}
 	return &genai.OptionsTools{
