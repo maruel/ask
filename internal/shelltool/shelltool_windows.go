@@ -26,32 +26,32 @@ var (
 )
 
 const (
-	PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES = 0x00020005
-	DISABLE_MAX_PRIVILEGE                       = 0x1
-	LUA_TOKEN                                   = 0x4
-	WRITE_RESTRICTED                            = 0x8
+	ProcThreadAttributeSecurityCapabilities = 0x00020005
+	DisableMaxPrivilege                     = 0x1
+	LUAToken                                = 0x4
+	WriteRestricted                         = 0x8
 
 	// File System Access
-	WELL_KNOWN_SID_CAPABILITY_DOCUMENTS_LIBRARY = "S-1-15-3-1" // Documents folder
-	WELL_KNOWN_SID_CAPABILITY_PICTURES_LIBRARY  = "S-1-15-3-2" // Pictures folder
-	WELL_KNOWN_SID_CAPABILITY_VIDEOS_LIBRARY    = "S-1-15-3-3" // Videos folder
-	WELL_KNOWN_SID_CAPABILITY_MUSIC_LIBRARY     = "S-1-15-3-4" // Music folder
-	WELL_KNOWN_SID_CAPABILITY_REMOVABLE_STORAGE = "S-1-15-3-5" // USB drives, etc.
+	WellKnownSIDCapabilityDocumentsLibrary = "S-1-15-3-1" // Documents folder
+	WellKnownSIDCapabilityPicturesLibrary  = "S-1-15-3-2" // Pictures folder
+	WellKnownSIDCapabilityVideosLibrary    = "S-1-15-3-3" // Videos folder
+	WellKnownSIDCapabilityMusicLibrary     = "S-1-15-3-4" // Music folder
+	WellKnownSIDCapabilityRemovableStorage = "S-1-15-3-5" // USB drives, etc.
 
 	// Network Access
-	WELL_KNOWN_SID_CAPABILITY_INTERNET_CLIENT               = "S-1-15-3-1" // Outbound internet
-	WELL_KNOWN_SID_CAPABILITY_INTERNET_CLIENT_SERVER        = "S-1-15-3-2" // Inbound + outbound internet
-	WELL_KNOWN_SID_CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER = "S-1-15-3-3" // Local network
+	WellKnownSIDCapabilityInternetClient             = "S-1-15-3-1" // Outbound internet
+	WellKnownSIDCapabilityInternetClientServer       = "S-1-15-3-2" // Inbound + outbound internet
+	WellKnownSIDCapabilityPrivateNetworkClientServer = "S-1-15-3-3" // Local network
 
 	// System Access
-	WELL_KNOWN_SID_CAPABILITY_SHARED_USER_CERTIFICATES  = "S-1-15-3-9"  // Certificate access
-	WELL_KNOWN_SID_CAPABILITY_ENTERPRISE_AUTHENTICATION = "S-1-15-3-10" // Enterprise auth
+	WellKnownSIDCapabilitySharedUserCertificates   = "S-1-15-3-9"  // Certificate access
+	WellKnownSIDCapabilityEnterpriseAuthentication = "S-1-15-3-10" // Enterprise auth
 
 	// Registry Access (limited)
-	WELL_KNOWN_SID_CAPABILITY_REGISTRY_READ = "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+	WellKnownSIDCapabilityRegistryRead = "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
 )
 
-type SECURITY_CAPABILITIES struct {
+type SecurityCapabilities struct {
 	AppContainerSid *windows.SID
 	Capabilities    *windows.SIDAndAttributes
 	CapabilityCount uint32
@@ -71,7 +71,7 @@ func getShellTool(allowNetwork bool) (*genai.OptionsTools, error) {
 					}
 					defer os.Remove(scriptPath)
 					psCmd := fmt.Sprintf("powershell.exe -ExecutionPolicy Bypass -File \"%s\"", scriptPath)
-					out, err := runWithAppContainer(psCmd)
+					out, err := runWithAppContainer(psCmd, allowNetwork)
 					slog.DebugContext(ctx, "bash", "command", args.Script, "output", string(out), "err", err)
 					_ = os.Remove(scriptPath)
 					return string(out), err
@@ -81,7 +81,7 @@ func getShellTool(allowNetwork bool) (*genai.OptionsTools, error) {
 	}, nil
 }
 
-func runWithAppContainer(cmdLine string) (string, error) {
+func runWithAppContainer(cmdLine string, allowNetwork bool) (string, error) {
 	var token windows.Token
 	if err := windows.OpenProcessToken(windows.CurrentProcess(), windows.TOKEN_ALL_ACCESS, &token); err != nil {
 		return "", fmt.Errorf("failed to open process token: %v", err)
@@ -91,13 +91,13 @@ func runWithAppContainer(cmdLine string) (string, error) {
 	var restrictedToken windows.Token
 	ret, _, err := procCreateRestrictedToken.Call(
 		uintptr(token),
-		DISABLE_MAX_PRIVILEGE|LUA_TOKEN, // |WRITE_RESTRICTED
-		0,                               // DisableSidCount
-		0,                               // SidsToDisable
-		0,                               // DeletePrivilegeCount
-		0,                               // PrivilegesToDelete
-		0,                               // RestrictedSidCount
-		0,                               // SidsToRestrict
+		DisableMaxPrivilege|LUAToken, // |WRITE_RESTRICTED
+		0,                            // DisableSidCount
+		0,                            // SidsToDisable
+		0,                            // DeletePrivilegeCount
+		0,                            // PrivilegesToDelete
+		0,                            // RestrictedSidCount
+		0,                            // SidsToRestrict
 		uintptr(unsafe.Pointer(&restrictedToken)),
 	)
 	if ret == 0 {
@@ -106,16 +106,16 @@ func runWithAppContainer(cmdLine string) (string, error) {
 	defer windows.CloseHandle(windows.Handle(restrictedToken))
 
 	var attrList *windows.ProcThreadAttributeList
-	if true {
+	if !allowNetwork {
 		caps := []string{
-			WELL_KNOWN_SID_CAPABILITY_DOCUMENTS_LIBRARY,
-			WELL_KNOWN_SID_CAPABILITY_PICTURES_LIBRARY,
-			WELL_KNOWN_SID_CAPABILITY_VIDEOS_LIBRARY,
-			WELL_KNOWN_SID_CAPABILITY_MUSIC_LIBRARY,
-			WELL_KNOWN_SID_CAPABILITY_REMOVABLE_STORAGE,
-			WELL_KNOWN_SID_CAPABILITY_INTERNET_CLIENT,
-			WELL_KNOWN_SID_CAPABILITY_INTERNET_CLIENT_SERVER,
-			WELL_KNOWN_SID_CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER,
+			WellKnownSIDCapabilityDocumentsLibrary,
+			WellKnownSIDCapabilityPicturesLibrary,
+			WellKnownSIDCapabilityVideosLibrary,
+			WellKnownSIDCapabilityMusicLibrary,
+			WellKnownSIDCapabilityRemovableStorage,
+			WellKnownSIDCapabilityInternetClient,
+			WellKnownSIDCapabilityInternetClientServer,
+			WellKnownSIDCapabilityPrivateNetworkClientServer,
 		}
 		sidAndAttrs, err2 := createCapabilitySIDs(caps)
 		if err2 != nil {
@@ -130,7 +130,7 @@ func runWithAppContainer(cmdLine string) (string, error) {
 		if err2 != nil {
 			return "", fmt.Errorf("failed to get AppContainer SID: %v", err2)
 		}
-		secCaps := SECURITY_CAPABILITIES{
+		secCaps := SecurityCapabilities{
 			AppContainerSid: appContainerSid,
 			Capabilities:    &sidAndAttrs[0],
 			CapabilityCount: uint32(len(sidAndAttrs)),
@@ -255,7 +255,7 @@ func createAppContainerSid(profileName string) (*windows.SID, error) {
 
 // https://github.com/rancher-sandbox/rancher-desktop/blob/main/src/go/rdctl/pkg/process/process_windows.go shows job object use.
 // https://blahcat.github.io/2020-12-29-cheap-sandboxing-with-appcontainers/
-func setupAppContainerAttributes(secCaps *SECURITY_CAPABILITIES) (*windows.ProcThreadAttributeListContainer, error) {
+func setupAppContainerAttributes(secCaps *SecurityCapabilities) (*windows.ProcThreadAttributeListContainer, error) {
 	// TODO: Testing with zero.
 	attributeList, err := windows.NewProcThreadAttributeList(0)
 	if err != nil {
@@ -263,7 +263,7 @@ func setupAppContainerAttributes(secCaps *SECURITY_CAPABILITIES) (*windows.ProcT
 	}
 	if false {
 		// TODO: Another good idea is PROC_THREAD_ATTRIBUTE_HANDLE_LIST
-		if err = attributeList.Update(PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES, unsafe.Pointer(secCaps), unsafe.Sizeof(*secCaps)); err != nil {
+		if err = attributeList.Update(ProcThreadAttributeSecurityCapabilities, unsafe.Pointer(secCaps), unsafe.Sizeof(*secCaps)); err != nil {
 			return nil, fmt.Errorf("failed to update: %w", err)
 		}
 	}

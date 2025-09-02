@@ -39,6 +39,14 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get install bubblewrap
+          # According to https://etbe.coker.com.au/2024/04/24/ubuntu-24-04-bubblewrap/
+          echo "abi <abi/4.0>,
+          include <tunables/global>
+          profile bwrap /usr/bin/bwrap flags=(unconfined) {
+            userns,
+            include if exists <local/bwrap>
+          }" | sudo tee /etc/apparmor.d/bwrap
+          sudo systemctl reload apparmor
       - name: "Check: go test -cover -short"
         if: always()
         run: go test -timeout=600s -v -covermode=count -coverprofile coverage.txt -bench=. -benchtime=1x -short ./...
