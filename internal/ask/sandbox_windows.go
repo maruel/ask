@@ -65,17 +65,11 @@ func getShellTool() (*genai.OptionsTools, error) {
 				Name:        "powershell",
 				Description: "Writes the script to a file, executes it via PowerShell on the Windows computer, and returns the output",
 				Callback: func(ctx context.Context, args *shellArguments) (string, error) {
-					tmpFile, err := os.CreateTemp("", "ask_script_*.ps1")
+					scriptPath, err := writeTempFile("ask.*.ps1", args.Script)
 					if err != nil {
 						return "", fmt.Errorf("failed to create temp file: %v", err)
 					}
-					scriptPath := tmpFile.Name()
-					if _, err = tmpFile.WriteString(args.Script); err != nil {
-						_ = tmpFile.Close()
-						_ = os.Remove(scriptPath)
-						return "", fmt.Errorf("failed to write to temp file: %v", err)
-					}
-					_ = tmpFile.Close()
+					defer os.Remove(scriptPath)
 					psCmd := fmt.Sprintf("powershell.exe -ExecutionPolicy Bypass -File \"%s\"", scriptPath)
 					out, err := runWithAppContainer(psCmd)
 					slog.DebugContext(ctx, "bash", "command", args.Script, "output", string(out), "err", err)
@@ -132,9 +126,9 @@ func runWithAppContainer(cmdLine string) (string, error) {
 			return "", err
 		}
 		defer procDeleteAppContainerProfile.Call(uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(profileName))))
-		appContainerSid, err := createAppContainerSid(profileName)
-		if err != nil {
-			return "", fmt.Errorf("failed to get AppContainer SID: %v", err)
+		appContainerSid, err2 := createAppContainerSid(profileName)
+		if err2 != nil {
+			return "", fmt.Errorf("failed to get AppContainer SID: %v", err2)
 		}
 		secCaps := SECURITY_CAPABILITIES{
 			AppContainerSid: appContainerSid,
