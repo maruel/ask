@@ -2,10 +2,7 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-// Package ask is the main entry point for the ask command.
-//
-// It is a separate package so people can go install github.com/maruel/ask@latest
-package ask
+package main
 
 import (
 	"context"
@@ -23,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/maruel/ask/internal"
+	"github.com/maruel/ask/internal/shelltool"
 	"github.com/maruel/genai"
 	"github.com/maruel/genai/adapters"
 	"github.com/maruel/genai/httprecord"
@@ -119,7 +117,7 @@ func Main() error {
 	mod := flag.String("modality", "", modHelp)
 
 	// Tools.
-	useBash := flag.Bool("bash", false, "enable bash tool; requires bubblewrap to mount a read-only file system")
+	useShell := flag.Bool("shell", false, "enable shell tool")
 	useWeb := flag.Bool("web", false, "enable web search tool; may be costly")
 
 	// Inputs.
@@ -187,7 +185,7 @@ func Main() error {
 		if *systemPrompt != "" {
 			return fmt.Errorf("cannot use -models with system prompt")
 		}
-		if *useBash {
+		if *useShell {
 			return fmt.Errorf("cannot use -models with -bash")
 		}
 		if *useWeb {
@@ -195,7 +193,7 @@ func Main() error {
 		}
 		err = printModels(ctx, c)
 	} else {
-		err = sendRequest(ctx, c, flag.Args(), files, *systemPrompt, *useBash, *useWeb, *quiet)
+		err = sendRequest(ctx, c, flag.Args(), files, *systemPrompt, *useShell, *useWeb, *quiet)
 	}
 	if errRR != nil {
 		return errRR
@@ -216,7 +214,7 @@ func printModels(ctx context.Context, c genai.Provider) error {
 	return err
 }
 
-func sendRequest(ctx context.Context, c genai.Provider, args []string, files stringsFlag, systemPrompt string, useBash, useWeb, quiet bool) error {
+func sendRequest(ctx context.Context, c genai.Provider, args []string, files stringsFlag, systemPrompt string, useShell, useWeb, quiet bool) error {
 	// Process inputs
 	var msgs genai.Messages
 	userMsg := genai.Message{}
@@ -245,8 +243,8 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 	}
 
 	useTools := false
-	if useBash {
-		if o, err := getShellTool(); o != nil {
+	if useShell {
+		if o, err := shelltool.New(false); o != nil {
 			useTools = true
 			o.WebSearch = useWeb
 			opts = append(opts, o)

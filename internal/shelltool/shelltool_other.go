@@ -4,7 +4,7 @@
 
 //go:build !windows && !darwin
 
-package ask
+package shelltool
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"github.com/maruel/genai"
 )
 
-func getShellTool() (*genai.OptionsTools, error) {
+func getShellTool(allowNetwork bool) (*genai.OptionsTools, error) {
 	bwrapPath, err := exec.LookPath("bwrap")
 	if err != nil {
 		return nil, fmt.Errorf("bwrap not found (install with sudo apt install bubblewrap): %w", err)
@@ -41,10 +41,11 @@ func getShellTool() (*genai.OptionsTools, error) {
 						"--dev", "/dev",
 						"--proc", "/proc",
 						"--bind", script, script,
-						"--unshare-net",
-						"--",
-						"/bin/bash", script,
 					}
+					if !allowNetwork {
+						v = append(v, "--unshare-net")
+					}
+					v = append(v, "--", "/bin/bash", script)
 					cmd := exec.CommandContext(ctx, bwrapPath, v...)
 					// Increases odds of success on non-English installation.
 					cmd.Env = append(os.Environ(), "LANG=C")

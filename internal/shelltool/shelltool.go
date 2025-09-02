@@ -2,12 +2,24 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package ask
+// Package shelltool makes a sandboxed shell available as a tool to the LLM.
+package shelltool
 
 import (
 	"fmt"
 	"os"
+
+	"github.com/maruel/genai"
 )
+
+// New return a shell tool that works on the current OS.
+//
+//   - On macOS, it runs /bin/zsh under sandbox-exec.
+//   - On Windows, it runs powershell under AppContainer.
+//   - On other platforms, it runs bash under bubblewrap.
+func New(allowNetwork bool) (*genai.OptionsTools, error) {
+	return getShellTool(allowNetwork)
+}
 
 type shellArguments struct {
 	Script string `json:"script"`

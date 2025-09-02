@@ -2,7 +2,7 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package ask
+package shelltool
 
 import (
 	"bytes"
@@ -58,7 +58,7 @@ type SECURITY_CAPABILITIES struct {
 	Reserved        uint32
 }
 
-func getShellTool() (*genai.OptionsTools, error) {
+func getShellTool(allowNetwork bool) (*genai.OptionsTools, error) {
 	return &genai.OptionsTools{
 		Tools: []genai.ToolDef{
 			{

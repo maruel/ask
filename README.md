@@ -6,8 +6,8 @@ Extremely lightweight yet powerful AI tool.
 - Generation: [images](#image-generation), [videos](#video-generation).
 - Tools:
     - Web search for anthropic, gemini, openai and perplexity! Use `-web` 🕸️
-    - `bash` via sandboxing (sandbox-exec on macOS, bubblewrap on linux), mounting the file system as
-      read-only.
+    - `shell` via sandboxing (sandbox-exec on macOS, bubblewrap on linux, AppContainer on Windows), mounting
+      the file system as read-only.
 - Works on Windows, macOS and Linux.
 - No need to fight with Python or Node.
 - For short prompts:
@@ -192,11 +192,11 @@ This works with anthropic, gemini, openai and perplexity!
 
 ### Bash
 
-➡ Leverage `bash` tool to enable the model to read local files. Only available on
-macOS and Linux. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
+➡ Leverage `shell` tool to enable the model to read local files. Available on
+macOS, Linux and Windows. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
 
 ```bash
-ask -p anthropic -bash \
+ask -p anthropic -shell \
     "Can you make a summary of the file named README.md?"
 ```
 
@@ -224,7 +224,7 @@ llama-serve -http 0.0.0.0:8080 -model Menlo/Jan-nano-gguf/jan-nano-4b-Q8_0.gguf 
 # Access this model from your local network:
 export ASK_PROVIDER=llamacpp
 export ASK_REMOTE=http://my-server.local:8080
-ask -bash "Can you make a summary of the file named README.md?"
+ask -shell "Can you make a summary of the file named README.md?"
 ```
 
 

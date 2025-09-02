@@ -2,7 +2,7 @@
 // Use of this source code is governed under the Apache License, Version 2.0
 // that can be found in the LICENSE file.
 
-package ask
+package shelltool
 
 import (
 	"context"
@@ -18,9 +18,6 @@ const sb = `(version 1)
 
 ; Default policy: deny everything
 (deny default)
-
-; Deny all network access
-(deny network*)
 
 ; Allow process execution
 (allow process-exec)
@@ -39,7 +36,12 @@ const sb = `(version 1)
 (allow file-write* (subpath "/tmp"))
 `
 
-func getShellTool() (*genai.OptionsTools, error) {
+const sbNoNetwork = `(version 1)
+; Deny all network access
+(deny network*)
+`
+
+func getShellTool(allowNetwork bool) (*genai.OptionsTools, error) {
 	if _, err := exec.LookPath("/usr/bin/sandbox-exec"); err != nil {
 		return nil, fmt.Errorf("sandbox-exec not found: %w", err)
 	}
@@ -52,7 +54,11 @@ func getShellTool() (*genai.OptionsTools, error) {
 				Name:        "zsh",
 				Description: "Writes the script to a file, executes it via zsh on the macOS computer, and returns the output",
 				Callback: func(ctx context.Context, args *shellArguments) (string, error) {
-					askSB, err := writeTempFile("ask.*.sb", sb)
+					sandbox := sb
+					if !allowNetwork {
+						sandbox += sbNoNetwork
+					}
+					askSB, err := writeTempFile("ask.*.sb", sandbox)
 					if err != nil {
 						return "", err
 					}
