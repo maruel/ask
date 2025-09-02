@@ -50,7 +50,7 @@ func getShellTool(allowNetwork bool) (*genai.OptionsTools, error) {
 					// Increases odds of success on non-English installation.
 					cmd.Env = append(os.Environ(), "LANG=C")
 					out, err2 := cmd.CombinedOutput()
-					slog.ErrorContext(ctx, "bash", "command", args.Script, "output", string(out), "err", err2)
+					slog.DebugContext(ctx, "bash", "command", args.Script, "output", string(out), "err", err2)
 					return string(out), err2
 				},
 			},
