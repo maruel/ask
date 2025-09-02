@@ -35,27 +35,28 @@ const sb = `(version 1)
 (allow file-write* (subpath "/tmp"))
 `
 
-// sandbox-exec -f readonly.sb /bin/bash
-func getSandbox(ctx context.Context) (*genai.OptionsTools, error) {
+func getShellTool() (*genai.OptionsTools, error) {
 	return &genai.OptionsTools{
 		Tools: []genai.ToolDef{
 			{
-				Name:        "bash",
-				Description: "Runs the requested command via bash on the macOS computer and returns the output",
-				Callback: func(ctx context.Context, args *bashArguments) (string, error) {
-					f, err := os.CreateTemp("", "ask.*.sb")
+				Name:        "zsh",
+				Description: "Writes the script to a file, executes it via zsh on the macOS computer, and returns the output",
+				Callback: func(ctx context.Context, args *shellArguments) (string, error) {
+					askSB, err := writeTempFile("ask.*.sb", sb)
 					if err != nil {
 						return "", err
 					}
-					n := f.Name()
-					f.WriteString(sb)
-					f.Close()
-					cmd := exec.CommandContext(ctx, "sandbox-exec", "-f", n, "bash", "-c", args.CommandLine)
+					defer os.Remove(askSB)
+					script, err := writeTempFile("ask.*.sh", args.Script)
+					if err != nil {
+						return "", err
+					}
+					defer os.Remove(script)
+					cmd := exec.CommandContext(ctx, "/usr/bin/sandbox-exec", "-f", askSB, "/bin/zsh", script)
 					// Increases odds of success on non-English installation.
 					cmd.Env = append(os.Environ(), "LANG=C")
-					out, err2 := cmd.Output()
-					slog.DebugContext(ctx, "bash", "command", args.CommandLine, "output", string(out), "err", err2)
-					_ = os.Remove(n)
+					out, err2 := cmd.CombinedOutput()
+					slog.DebugContext(ctx, "bash", "command", args.Script, "output", string(out), "err", err2)
 					return string(out), err2
 				},
 			},

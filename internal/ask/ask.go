@@ -32,10 +32,6 @@ import (
 	"gopkg.in/dnaeon/go-vcr.v4/pkg/recorder"
 )
 
-type bashArguments struct {
-	CommandLine string `json:"command_line"`
-}
-
 type stringsFlag []string
 
 func (s *stringsFlag) Set(value string) error {
@@ -250,7 +246,7 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 
 	useTools := false
 	if useBash {
-		if o, err := getSandbox(ctx); o != nil {
+		if o, err := getShellTool(); o != nil {
 			useTools = true
 			o.WebSearch = useWeb
 			opts = append(opts, o)

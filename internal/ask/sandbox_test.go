@@ -13,7 +13,7 @@ import (
 )
 
 func TestGetSandbox(t *testing.T) {
-	opts, err := getSandbox(t.Context())
+	opts, err := getShellTool()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,13 +22,13 @@ func TestGetSandbox(t *testing.T) {
 	}
 	script, want := "", ""
 	if runtime.GOOS == "windows" {
-		script = "Write-Output \"hi\"\n[System.Console]::Error.WriteLine(\"hello\")"
+		script = "Write-Output \"hi\"\n[System.Console]::Error.WriteLine(\"hello\")\n"
 		want = "hi\r\nhello\r\n"
 	} else {
-		script = "echo hi\necho hello>&2"
+		script = "echo hi\necho hello >&2\n"
 		want = "hi\nhello\n"
 	}
-	b, _ := json.Marshal(&bashArguments{CommandLine: script})
+	b, _ := json.Marshal(&shellArguments{Script: script})
 	msg := genai.Message{Replies: []genai.Reply{{ToolCall: genai.ToolCall{Name: opts.Tools[0].Name, Arguments: string(b)}}}}
 	res, err := msg.DoToolCalls(t.Context(), opts.Tools)
 	if err != nil {

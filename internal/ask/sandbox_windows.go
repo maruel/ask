@@ -58,27 +58,28 @@ type SECURITY_CAPABILITIES struct {
 	Reserved        uint32
 }
 
-func getSandbox(ctx context.Context) (*genai.OptionsTools, error) {
+func getSandbox() (*genai.OptionsTools, error) {
 	return &genai.OptionsTools{
 		Tools: []genai.ToolDef{
 			{
 				Name:        "powershell",
-				Description: "Runs the requested command via PowerShell on the Windows computer and returns the output",
-				Callback: func(ctx context.Context, args *bashArguments) (string, error) {
+				Description: "Writes the script to a file, executes it via PowerShell on the Windows computer, and returns the output",
+				Callback: func(ctx context.Context, args *shellArguments) (string, error) {
 					tmpFile, err := os.CreateTemp("", "ask_script_*.ps1")
 					if err != nil {
 						return "", fmt.Errorf("failed to create temp file: %v", err)
 					}
 					scriptPath := tmpFile.Name()
-					defer os.Remove(scriptPath)
-					if _, err := tmpFile.WriteString(args.CommandLine); err != nil {
-						tmpFile.Close()
+					if _, err = tmpFile.WriteString(args.Script); err != nil {
+						_ = tmpFile.Close()
+						_ = os.Remove(scriptPath)
 						return "", fmt.Errorf("failed to write to temp file: %v", err)
 					}
-					tmpFile.Close()
+					_ = tmpFile.Close()
 					psCmd := fmt.Sprintf("powershell.exe -ExecutionPolicy Bypass -File \"%s\"", scriptPath)
 					out, err := runWithAppContainer(psCmd)
-					slog.DebugContext(ctx, "bash", "command", args.CommandLine, "output", string(out), "err", err)
+					slog.DebugContext(ctx, "bash", "command", args.Script, "output", string(out), "err", err)
+					_ = os.Remove(scriptPath)
 					return string(out), err
 				},
 			},
@@ -122,12 +123,12 @@ func runWithAppContainer(cmdLine string) (string, error) {
 			WELL_KNOWN_SID_CAPABILITY_INTERNET_CLIENT_SERVER,
 			WELL_KNOWN_SID_CAPABILITY_PRIVATE_NETWORK_CLIENT_SERVER,
 		}
-		sidAndAttrs, err := createCapabilitySIDs(caps)
-		if err != nil {
-			return "", err
+		sidAndAttrs, err2 := createCapabilitySIDs(caps)
+		if err2 != nil {
+			return "", err2
 		}
 		profileName := "ReadOnlyAppContainer"
-		if err := createContainer(windows.StringToUTF16Ptr(profileName)); err != nil {
+		if err = createContainer(windows.StringToUTF16Ptr(profileName)); err != nil {
 			return "", err
 		}
 		defer procDeleteAppContainerProfile.Call(uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(profileName))))
@@ -173,11 +174,11 @@ func runWithAppContainer(cmdLine string) (string, error) {
 	defer windows.CloseHandle(pi.Process)
 	defer windows.CloseHandle(pi.Thread)
 	// Close write handles in parent process to avoid blocking.
-	windows.CloseHandle(stdoutWrite)
+	_ = windows.CloseHandle(stdoutWrite)
 	stdout := readFromPipe(stdoutRead)
-	windows.WaitForSingleObject(pi.Process, windows.INFINITE)
+	_, _ = windows.WaitForSingleObject(pi.Process, windows.INFINITE)
 	var exitCode uint32
-	windows.GetExitCodeProcess(pi.Process, &exitCode)
+	_ = windows.GetExitCodeProcess(pi.Process, &exitCode)
 	err = nil
 	if exitCode != 0 {
 		if exitCode > 255 {
@@ -196,7 +197,7 @@ func createPipe() (windows.Handle, windows.Handle, error) {
 		return 0, 0, fmt.Errorf("CreatePipe failed: %w", err)
 	}
 	// Make sure the read handle is not inherited.
-	windows.SetHandleInformation(r, windows.HANDLE_FLAG_INHERIT, 0)
+	_ = windows.SetHandleInformation(r, windows.HANDLE_FLAG_INHERIT, 0)
 	return r, w, nil
 }
 
@@ -228,7 +229,7 @@ func createContainer(profileNamePtr *uint16) error {
 	if ret != 0 {
 		// If profile already exists, try to delete and recreate
 		if ret == 0x800700B7 { // HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS)
-			procDeleteAppContainerProfile.Call(uintptr(unsafe.Pointer(profileNamePtr)))
+			_, _, _ = procDeleteAppContainerProfile.Call(uintptr(unsafe.Pointer(profileNamePtr)))
 			// Try creating again
 			ret, _, err = procCreateAppContainerProfile.Call(
 				uintptr(unsafe.Pointer(profileNamePtr)),
