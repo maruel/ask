@@ -194,20 +194,29 @@ This works with anthropic, gemini, openai and perplexity!
 
 ➡ Leverage [shelltool](http://pkg.go.dev/github.com/maruel/genaitools/shelltool] to enable the model to run
 commands locally without network access nor write access. Available on
-macOS and Linux. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
+macOS and Linux. 💡 Set [`CEREBRAS_API_KEY`](https://cloud.cerebras.ai/platform/).
 
 ```bash
-ask -p anthropic -shell \
-    "Can you make a summary of the file named README.md?"
+time ask -shell -p cerebras "Read README.md then summarize it in two sentences"
 ```
 
 This may output:
 
-> A lightweight AI tool that supports multiple providers, file analysis (images, PDF, audio, video), content
-> generation, and includes tools like websearch and bash access on Linux.
+> The "ask" tool is a lightweight and versatile AI utility that supports multiple providers, file analysis
+> (including images, audio, and video), content generation, and integrated tools like web search and local
+> command execution via sandboxing. It works across Windows, macOS, and Linux, offers fast performance, and
+> allows easy customization through environment variables and system prompts.
+> 
+> real    0m0,784s
+>
+> user    0m0,040s
+>
+> sys     0m0,050s
 
-⚠ This only works on Linux. This enables the model to read *anything* on your computer. This is dangerous. A
-better solution will be added later.
+*784ms total*; that was on macOS.
+
+⚠ Works on macOS and Linux. This enables the model to read most files on your computer. Write access is denied
+and network is disallowed. So the damage is limited but this can still send secrets to the LLM.
 
 
 ### Local 🏠️
