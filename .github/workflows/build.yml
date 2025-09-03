@@ -26,11 +26,11 @@ jobs:
         run: go mod download
       - name: Build executables for all platforms
         run: |
-          ./build.sh darwin arm64
-          ./build.sh linux amd64
-          ./build.sh linux arm64
-          ./build.sh windows amd64
-          ./build.sh windows arm64
+          .github.com/workflows/build.sh darwin arm64
+          .github.com/workflows/build.sh linux amd64
+          .github.com/workflows/build.sh linux arm64
+          .github.com/workflows/build.sh windows amd64
+          .github.com/workflows/build.sh windows arm64
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
