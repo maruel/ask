@@ -7,7 +7,7 @@ Extremely lightweight yet powerful AI tool.
 - Tools:
     - `-web` Web search for anthropic, gemini, openai and perplexity! Use `-web` 🕸️
     - `-shell` Run commands via sandboxing (sandbox-exec on macOS, bubblewrap on linux), mounting the file
-      system as read-only.
+      system as read-only. 🧰
 - Works on Windows, macOS and Linux.
 - No need to fight with Python or Node.
 - For short prompts:
@@ -190,10 +190,11 @@ ask -p anthropic -web \
 This works with anthropic, gemini, openai and perplexity!
 
 
-### Bash
+### Bash & zsh 🧰
 
-➡ Leverage `shell` tool to enable the model to read local files. Available on
-macOS, Linux and Windows. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
+➡ Leverage [shelltool](http://pkg.go.dev/github.com/maruel/genaitools/shelltool] to enable the model to run
+commands locally without network access nor write access. Available on
+macOS and Linux. 💡 Set [`ANTHROPIC_API_KEY`](https://console.anthropic.com/settings/keys).
 
 ```bash
 ask -p anthropic -shell \
