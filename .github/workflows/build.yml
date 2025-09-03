@@ -53,7 +53,7 @@ jobs:
           while IFS= read -r executable; do
             if [ -n "$executable" ]; then
               echo "Building $executable for ${{ matrix.goos }}/${{ matrix.goarch }}"
-              go build -ldflags="-s -w" -o build/${{ matrix.goos }}-${{ matrix.goarch }}/${executable}${{ matrix.suffix }} ./cmd/$executable
+              go build -trimpath -ldflags="-s -w" -o build/${{ matrix.goos }}-${{ matrix.goarch }}/${executable}${{ matrix.suffix }} ./cmd/$executable
             fi
           done <<< "$executables"
       - name: Upload artifacts
