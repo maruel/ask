@@ -1,0 +1,129 @@
+name: Build and Sign macOS App
+
+on:
+  workflow_dispatch:
+
+env:
+  APP_NAME: ask
+  BUNDLE_ID: com.fghbuild.ask
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Set up Go
+      uses: actions/setup-go@v5
+    - name: Build for macOS ARM64
+      run: |
+        CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ${{ env.APP_NAME }}-arm64
+    - name: Build for macOS AMD64 (Intel)
+      run: |
+        GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o ${{ env.APP_NAME }}-amd64
+    - name: Create Universal Binary
+      run: |
+        lipo -create -output ${{ env.APP_NAME }} ${{ env.APP_NAME }}-arm64 ${{ env.APP_NAME }}-amd64
+        rm ${{ env.APP_NAME }}-arm64 ${{ env.APP_NAME }}-amd64
+    - name: Import Code-Signing Certificates
+      uses: Apple-Actions/import-codesign-certs@v2
+      with:
+        p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
+        p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
+    - name: Create App Bundle
+      run: |
+        mkdir -p ${{ env.APP_NAME }}.app/Contents/MacOS
+        mkdir -p ${{ env.APP_NAME }}.app/Contents/Resources
+        cp ${{ env.APP_NAME }} ${{ env.APP_NAME }}.app/Contents/MacOS/
+        cat > ${{ env.APP_NAME }}.app/Contents/Info.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>CFBundleExecutable</key>
+            <string>${{ env.APP_NAME }}</string>
+            <key>CFBundleIdentifier</key>
+            <string>${{ env.BUNDLE_ID }}</string>
+            <key>CFBundleName</key>
+            <string>${{ env.APP_NAME }}</string>
+            <key>CFBundleVersion</key>
+            <string>${{ github.ref_name }}</string>
+            <key>CFBundleShortVersionString</key>
+            <string>${{ github.ref_name }}</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>10.15</string>
+        </dict>
+        </plist>
+        EOF
+    - name: Sign App Bundle
+      run: |
+        # Sign the executable first
+        codesign --sign "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_ID }}" \
+                 --timestamp \
+                 --options runtime \
+                 --verbose \
+                 ${{ env.APP_NAME }}.app/Contents/MacOS/${{ env.APP_NAME }}
+        # Sign the app bundle
+        codesign --sign "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_ID }}" \
+                 --timestamp \
+                 --options runtime \
+                 --verbose \
+                 --deep \
+                 ${{ env.APP_NAME }}.app
+    - name: Verify Code Signing
+      run: |
+        codesign --verify --verbose ${{ env.APP_NAME }}.app
+        spctl --assess --verbose ${{ env.APP_NAME }}.app
+    - name: Create ZIP for Notarization
+      run: |
+        zip -r ${{ env.APP_NAME }}.zip ${{ env.APP_NAME }}.app
+    - name: Notarize App
+      run: |
+        # Submit for notarization
+        xcrun notarytool submit ${{ env.APP_NAME }}.zip \
+                        --apple-id "${{ secrets.APPLE_ID }}" \
+                        --password "${{ secrets.APPLE_APP_PASSWORD }}" \
+                        --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+                        --wait
+        # Staple the notarization ticket
+        xcrun stapler staple ${{ env.APP_NAME }}.app
+    - name: Verify Notarization
+      run: |
+        xcrun stapler validate ${{ env.APP_NAME }}.app
+        spctl --assess --verbose --type execute ${{ env.APP_NAME }}.app
+    - name: Create DMG
+      run: |
+        # Create a temporary directory for DMG contents
+        mkdir dmg-contents
+        cp -R ${{ env.APP_NAME }}.app dmg-contents/
+        # Create Applications symlink
+        ln -s /Applications dmg-contents/Applications
+        # Create DMG
+        hdiutil create -volname "${{ env.APP_NAME }}" \
+                       -srcfolder dmg-contents \
+                       -ov \
+                       -format UDZO \
+                       ${{ env.APP_NAME }}.dmg
+    - name: Sign DMG
+      run: |
+        codesign --sign "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_ID }}" \
+                 --timestamp \
+                 ${{ env.APP_NAME }}.dmg
+    - name: Notarize DMG
+      run: |
+        xcrun notarytool submit ${{ env.APP_NAME }}.dmg \
+                        --apple-id "${{ secrets.APPLE_ID }}" \
+                        --password "${{ secrets.APPLE_APP_PASSWORD }}" \
+                        --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+                        --wait
+        xcrun stapler staple ${{ env.APP_NAME }}.dmg
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: macos-signed-app
+        path: |
+          ${{ env.APP_NAME }}.dmg
+          ${{ env.APP_NAME }}.zip
+          ${{ env.APP_NAME }}.app
