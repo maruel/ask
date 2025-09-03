@@ -22,15 +22,11 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Get dependencies
-        run: go mod download
-      - name: Build executables for all platforms
-        run: |
-          .github/workflows/build.sh darwin arm64
-          .github/workflows/build.sh linux amd64
-          .github/workflows/build.sh linux arm64
-          .github/workflows/build.sh windows amd64
-          .github/workflows/build.sh windows arm64
+      - run: .github/workflows/build.sh darwin arm64
+      - run: .github/workflows/build.sh linux amd64
+      - run: .github/workflows/build.sh linux arm64
+      - run: .github/workflows/build.sh windows amd64
+      - run: .github/workflows/build.sh windows arm64
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
