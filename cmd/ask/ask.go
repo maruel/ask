@@ -20,11 +20,11 @@ import (
 	"strings"
 
 	"github.com/maruel/ask/internal"
-	"github.com/maruel/ask/internal/shelltool"
 	"github.com/maruel/genai"
 	"github.com/maruel/genai/adapters"
 	"github.com/maruel/genai/httprecord"
 	"github.com/maruel/genai/providers"
+	"github.com/maruel/genaitools/shelltool"
 	"github.com/maruel/roundtrippers"
 	"github.com/mattn/go-colorable"
 	"gopkg.in/dnaeon/go-vcr.v4/pkg/recorder"
