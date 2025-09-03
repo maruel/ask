@@ -23,8 +23,8 @@ fi
 
 mkdir -p build
 PLATFORM_DIR="build/${GOOS}-${GOARCH}"
-echo "- $GOOS/$GOARCH"
 mkdir -p "$PLATFORM_DIR"
 while IFS= read -r BINARY; do
+	echo "- ${BINARY}"
 	go build -trimpath -ldflags="-s -w" -o "${PLATFORM_DIR}/${BINARY}${SUFFIX}" "./cmd/$BINARY"
 done <<< "$(find cmd -maxdepth 1 -mindepth 1 -type d -exec basename {} \; | sort)"
