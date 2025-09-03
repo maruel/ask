@@ -9,7 +9,7 @@ set -eu
 cd "$(dirname "$0")/../.."
 pwd
 
-if [ ! $# -eq 3 ]; then
+if [ ! $# -eq 2 ]; then
 	echo "Usage: $0 <GOOS> <GOARCH>"
 	exit 1
 fi
