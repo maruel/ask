@@ -85,13 +85,12 @@ func Main() error {
 		w := flag.CommandLine.Output()
 		fmt.Fprintf(w, "Usage: %s [options] <prompt>\n\n", os.Args[0])
 		flag.PrintDefaults()
-		fmt.Fprintf(w, "\nOn linux when bubblewrap (bwrap) is installed, tool calling is enabled with a read-only file system.\n")
+		fmt.Fprintf(w, "\nOn macOS, or linux when bubblewrap (bwrap) is installed, tool calling is enabled with a read-only file system.\n")
 		fmt.Fprintf(w, "\nEnvironment variables:\n")
 		fmt.Fprintf(w, "  ASK_MODEL:         default value for -model\n")
 		fmt.Fprintf(w, "  ASK_PROVIDER:      default value for -provider\n")
 		fmt.Fprintf(w, "  ASK_REMOTE:        default value for -remote\n")
 		fmt.Fprintf(w, "  ASK_SYSTEM_PROMPT: default value for -sys\n")
-		fmt.Fprintf(w, "\nUse github.com/maruel/genai/cmd/list-model@latest for a list of available models.\n")
 	}
 	// General.
 	verbose := flag.Bool("v", false, "verbose logs about metadata and usage")
