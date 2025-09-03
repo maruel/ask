@@ -2,6 +2,8 @@
 
 Extremely lightweight yet powerful AI tool.
 
+![ask.gif](https://raw.githubusercontent.com/wiki/maruel/ask/ask.gif)
+
 - Input file analysis: text, images, PDF, audio, videos, etc.
 - Generation: [images](#image-generation), [videos](#video-generation).
 - Tools:
