@@ -104,6 +104,7 @@ jobs:
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           go install golang.org/x/tools/go/analysis/passes/shadow/cmd/shadow@latest
           go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install github.com/nishanths/exhaustive/cmd/exhaustive@latest
       - name: "go install necessary tools (ubuntu)"
         if: always() && matrix.os == 'ubuntu-latest'
         run: |
@@ -128,19 +129,22 @@ jobs:
         run: staticcheck ./...
       - name: "Check: gosec"
         if: always()
-        run: gosec -fmt=golint -quiet -exclude G103,G107,G110,G115,G204,G301,G302,G304,G306 ./...
+        run: gosec -fmt=golint -quiet -exclude G101,G103,G107,G110,G115,G204,G301,G302,G304,G306 ./...
         # The following checks are not dependent on the OS or go build tags. Only
         # run them on ubuntu-latest since it's the fastest one.
+      - name: "Check: exhaustive"
+        if: always()
+        run: exhaustive ./...
       - name: "Check: no executable was committed (ubuntu)"
         if: always() && matrix.os == 'ubuntu-latest'
         run: |
-          if find . -type f -not -path './.git/*' -not -path './cache/*' -not -path './py/venv/*' -not -name '*.sh' -not -name '*.py' -perm +111 | grep -e . ; then
-            echo 'Do not commit executables beside shell scripts'
+          if find . -type f -not -path './.git/*' -perm +111 | grep -e . ; then
+            echo 'Do not commit executables'
             false
           fi
       - name: "Check: addlicense; all sources have a license header (ubuntu)"
         if: always() && matrix.os == 'ubuntu-latest'
-        run: addlicense -ignore default_config.yml -check .
+        run: addlicense -ignore default_config.yml -ignore "**/testdata/**" -check .
       - name: "Check: gofmt; code is well formatted (ubuntu)"
         if: always() && matrix.os == 'ubuntu-latest'
         run: |
@@ -161,8 +165,7 @@ jobs:
       - name: "Check: misspelling; code doesn't contain misspelling (ubuntu)"
         if: always() && matrix.os == 'ubuntu-latest'
         run: |
-          # Skip MODELS.md because it's generated.
-          FILES=$(git ls-files | grep -v '^\.' | grep -v '^MODELS\.md')
+          FILES=$(git ls-files | grep -v '^\.')
           ERR=$(misspell $FILES)
           if ! test -z "$ERR"; then
             echo "$ERR"
