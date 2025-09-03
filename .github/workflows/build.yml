@@ -15,24 +15,6 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-            suffix: ""
-          - goos: linux
-            goarch: arm64
-            suffix: ""
-          - goos: darwin
-            goarch: arm64
-            suffix: ""
-          - goos: windows
-            goarch: amd64
-            suffix: ".exe"
-          - goos: windows
-            goarch: arm64
-            suffix: ".exe"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -42,26 +24,49 @@ jobs:
           go-version-file: go.mod
       - name: Get dependencies
         run: go mod download
-      - name: Build executables
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+      - name: Build executables for all platforms
         run: |
-          mkdir -p build/${{ matrix.goos }}-${{ matrix.goarch }}
-          executables=$(find cmd -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
-          while IFS= read -r executable; do
-            if [ -n "$executable" ]; then
-              echo "Building $executable for ${{ matrix.goos }}/${{ matrix.goarch }}"
-              go build -trimpath -ldflags="-s -w" -o build/${{ matrix.goos }}-${{ matrix.goarch }}/${executable}${{ matrix.suffix }} ./cmd/$executable
-            fi
-          done <<< "$executables"
+          ./build.sh darwin arm64
+          ./build.sh linux amd64
+          ./build.sh linux arm64
+          ./build.sh windows amd64
+          ./build.sh windows arm64
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ask-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: build/${{ matrix.goos }}-${{ matrix.goarch }}/
+          name: ask-all-platforms
+          path: build/
           retention-days: 5
+      #- name: Upload artifacts
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: ask-darwin-ard64
+      #    path: build/darwin-arm64
+      #    retention-days: 5
+      #- name: Upload artifacts
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: ask-linux-amd64
+      #    path: build/linux-amd64
+      #    retention-days: 5
+      #- name: Upload artifacts
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: ask-linux-ard64
+      #    path: build/linux-ard64
+      #    retention-days: 5
+      #- name: Upload artifacts
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: ask-windows-amd64
+      #    path: build/windows-amd64
+      #    retention-days: 5
+      #- name: Upload artifacts
+      #  uses: actions/upload-artifact@v4
+      #  with:
+      #    name: ask-windows-ard64
+      #    path: build/windows-ard64
+      #    retention-days: 5
 
   # Create release if this is a tag push.
   release:
@@ -77,20 +82,23 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v5
         with:
+          name: ask-all-platforms
           path: artifacts
       - name: Prepare release assets
         run: |
           mkdir -p release
           cd artifacts
-          for dir in ask-*; do
-            platform=$(echo $dir | sed 's/ask-//')
-            cd "$dir"
-            if [[ "$platform" == windows* ]]; then
-              zip -r "../../release/ask-${platform}.zip" *
-            else
-              tar -czf "../../release/ask-${platform}.tar.gz" *
+          for dir in *; do
+            if [ -d "$dir" ]; then
+              platform="$dir"
+              cd "$platform"
+              if [[ "$platform" == windows* ]]; then
+                zip -r "../../release/ask-${platform}.zip" *
+              else
+                tar -czf "../../release/ask-${platform}.tar.gz" *
+              fi
+              cd ..
             fi
-            cd ..
           done
       - name: Create Release
         uses: softprops/action-gh-release@v2
