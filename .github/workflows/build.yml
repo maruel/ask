@@ -91,6 +91,8 @@ jobs:
               if [[ "$platform" == windows* ]]; then
                 zip -r "../../release/ask-${platform}.zip" *
               else
+                # actions/upload-artifact doesn't keep the file permissions.
+                chmod +x *
                 tar -czf "../../release/ask-${platform}.tar.gz" *
               fi
               cd ..
