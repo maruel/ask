@@ -319,10 +319,13 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 				_, _ = io.WriteString(w, hiblack+"Citation:\n"+reset)
 			}
 			for _, src := range f.Citation.Sources {
-				if src.Type == "web" {
+				switch src.Type {
+				case genai.CitationWeb:
 					fmt.Fprintf(w, "  - %s / %s\n", src.Title, src.URL)
-				} else {
+				case genai.CitationWebImage:
 					fmt.Fprintf(w, "  - Image: %s\n", src.URL)
+				case genai.CitationWebQuery, genai.CitationDocument, genai.CitationTool:
+				default:
 				}
 			}
 			last = "\n"

@@ -5,9 +5,9 @@ Extremely lightweight yet powerful AI tool.
 - Input file analysis: text, images, PDF, audio, videos, etc.
 - Generation: [images](#image-generation), [videos](#video-generation).
 - Tools:
-    - Web search for anthropic, gemini, openai and perplexity! Use `-web` 🕸️
-    - `shell` via sandboxing (sandbox-exec on macOS, bubblewrap on linux, AppContainer on Windows), mounting
-      the file system as read-only.
+    - `-web` Web search for anthropic, gemini, openai and perplexity! Use `-web` 🕸️
+    - `-shell` Run commands via sandboxing (sandbox-exec on macOS, bubblewrap on linux, AppContainer on
+      Windows), mounting the file system as read-only.
 - Works on Windows, macOS and Linux.
 - No need to fight with Python or Node.
 - For short prompts:
