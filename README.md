@@ -194,7 +194,7 @@ This works with anthropic, gemini, openai and perplexity!
 
 ### Bash & zsh 🧰
 
-➡ Leverage [shelltool](http://pkg.go.dev/github.com/maruel/genaitools/shelltool] to enable the model to run
+➡ Leverage [shelltool](http://pkg.go.dev/github.com/maruel/genaitools/shelltool) to enable the model to run
 commands locally without network access nor write access. Available on
 macOS and Linux. 💡 Set [`CEREBRAS_API_KEY`](https://cloud.cerebras.ai/platform/).
 
