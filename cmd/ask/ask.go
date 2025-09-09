@@ -260,7 +260,7 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opts []genai.Options, useTools, quiet bool) error {
 	w := colorable.NewColorableStdout()
 	// Send request.
-	var fragments iter.Seq[genai.ReplyFragment]
+	var fragments iter.Seq[genai.Reply]
 	var finishTools func() (genai.Messages, genai.Usage, error)
 	var finishStream func() (genai.Result, error)
 	if useTools {
@@ -273,7 +273,7 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 	// TODO: Another better form would be to keep track of the citations and print them at the bottom. That's
 	// what most web uis do. Please send a PR to do that.
 	for f := range fragments {
-		if f.TextFragment != "" {
+		if f.Text != "" {
 			if mode != "text" {
 				mode = "text"
 				if !strings.HasSuffix(last, "\n\n") {
@@ -284,14 +284,14 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 				}
 				_, _ = io.WriteString(w, hiblack+"Answer: "+reset)
 			}
-			_, _ = io.WriteString(w, f.TextFragment)
-			last = f.TextFragment
+			_, _ = io.WriteString(w, f.Text)
+			last = f.Text
 			continue
 		}
 		if quiet {
 			continue
 		}
-		if f.ReasoningFragment != "" {
+		if f.Reasoning != "" {
 			if mode != "thinking" {
 				mode = "thinking"
 				if last != "" && !strings.HasSuffix(last, "\n\n") {
@@ -302,8 +302,8 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 				}
 				_, _ = io.WriteString(w, hiblack+"Reasoning: "+reset)
 			}
-			_, _ = io.WriteString(w, f.ReasoningFragment)
-			last = f.ReasoningFragment
+			_, _ = io.WriteString(w, f.Reasoning)
+			last = f.Reasoning
 			continue
 		}
 		if !f.Citation.IsZero() {

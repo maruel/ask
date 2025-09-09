@@ -46,15 +46,15 @@ func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts .
 	start := true
 	for f := range fragments {
 		if start {
-			f.TextFragment = strings.TrimLeftFunc(f.TextFragment, unicode.IsSpace)
+			f.Text = strings.TrimLeftFunc(f.Text, unicode.IsSpace)
 			start = false
 		}
-		if f.TextFragment != "" {
-			hasLF = strings.ContainsRune(f.TextFragment, '\n')
-		} else if f.Filename != "" {
-			fmt.Printf("Got %s..\n", f.Filename)
+		if f.Text != "" {
+			hasLF = strings.ContainsRune(f.Text, '\n')
+		} else if f.Doc.Filename != "" {
+			fmt.Printf("Got %s..\n", f.Doc.Filename)
 		}
-		_, _ = os.Stdout.WriteString(f.TextFragment)
+		_, _ = os.Stdout.WriteString(f.Text)
 	}
 	if !hasLF {
 		_, _ = os.Stdout.WriteString("\n")
