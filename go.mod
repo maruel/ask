@@ -9,6 +9,7 @@ require (
 	github.com/maruel/roundtrippers v0.5.0
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
+	golang.org/x/term v0.34.0
 	gopkg.in/dnaeon/go-vcr.v4 v4.0.5
 )
 
