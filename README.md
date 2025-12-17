@@ -154,6 +154,27 @@ This may respond:
 > analysis, content generation, and additional tools like web search and bash access on Linux.
 
 
+### Stdin
+
+➡ Pipe data directly to ask without specifying a file. Works with any text or binary data. 💡 Set
+[`GROQ_API_KEY`](https://console.groq.com/keys).
+
+```bash
+cat README.md | ask -p groq "Summarize this in one sentence"
+```
+
+This may respond:
+
+> The "ask" tool is an extremely lightweight yet powerful AI tool that supports various providers, file
+> analysis, content generation, and additional tools like web search and bash access on Linux.
+
+You can also combine stdin with a prompt and additional files:
+
+```bash
+ls -la | ask -p groq -f image.jpg "What files are shown, and what is in the image?"
+```
+
+
 ### File by URL
 
 ➡ Analyse a file from an URL using vision. 💡 Set

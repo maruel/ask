@@ -27,6 +27,7 @@ import (
 	"github.com/maruel/genaitools/shelltool"
 	"github.com/maruel/roundtrippers"
 	"github.com/mattn/go-colorable"
+	"golang.org/x/term"
 	"gopkg.in/dnaeon/go-vcr.v4/pkg/recorder"
 )
 
@@ -85,6 +86,11 @@ func Main() error {
 		w := flag.CommandLine.Output()
 		fmt.Fprintf(w, "Usage: %s [options] <prompt>\n\n", os.Args[0])
 		flag.PrintDefaults()
+		fmt.Fprintf(w, "\nInput methods:\n")
+		fmt.Fprintf(w, "  - Prompt argument: ask \"your question\"\n")
+		fmt.Fprintf(w, "  - Files: ask -f file.txt -f image.jpg \"your question\"\n")
+		fmt.Fprintf(w, "  - Stdin: cat file.txt | ask \"analyze this\"\n")
+		fmt.Fprintf(w, "  - URLs: ask -f https://example.com/image.jpg \"what is this?\"\n")
 		fmt.Fprintf(w, "\nOn macOS, or linux when bubblewrap (bwrap) is installed, tool calling is enabled with a read-only file system.\n")
 		fmt.Fprintf(w, "\nEnvironment variables:\n")
 		fmt.Fprintf(w, "  ASK_MODEL:         default value for -model\n")
@@ -234,6 +240,10 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 		}
 		defer f.Close()
 		userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{Src: f}})
+	}
+	// Check if stdin has data (not a terminal)
+	if len(userMsg.Requests) == 0 && !term.IsTerminal(int(os.Stdin.Fd())) {
+		userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{Src: os.Stdin}})
 	}
 	if len(userMsg.Requests) == 0 {
 		return errors.New("provide a prompt as an argument or input files")
