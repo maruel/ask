@@ -91,6 +91,9 @@ func Main() error {
 		fmt.Fprintf(w, "  ASK_PROVIDER:      default value for -provider\n")
 		fmt.Fprintf(w, "  ASK_REMOTE:        default value for -remote\n")
 		fmt.Fprintf(w, "  ASK_SYSTEM_PROMPT: default value for -sys\n")
+		fmt.Fprintf(w, "\nPerformance:\n")
+		fmt.Fprintf(w, "  Model auto detection (%s, %s, %s) requires an HTTP request which will\n", genai.ModelCheap, genai.ModelGood, genai.ModelSOTA)
+		fmt.Fprintf(w, "  take ~100ms. If you want it to be fast, make sure to specify a model!\n")
 	}
 	// General.
 	verbose := flag.Bool("v", false, "verbose logs about metadata and usage")
