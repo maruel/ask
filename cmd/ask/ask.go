@@ -241,8 +241,7 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 		defer f.Close()
 		userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{Src: f}})
 	}
-	// Check if stdin has data (not a terminal)
-	if len(userMsg.Requests) == 0 && !term.IsTerminal(int(os.Stdin.Fd())) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{Src: os.Stdin}})
 	}
 	if len(userMsg.Requests) == 0 {

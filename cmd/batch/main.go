@@ -34,7 +34,7 @@ func listProviderGenAsync(ctx context.Context) []string {
 		if err != nil {
 			continue
 		}
-		if _, ok := c.(genai.ProviderGenAsync); ok {
+		if c.Capabilities().GenAsync {
 			names = append(names, name)
 		}
 	}
@@ -42,7 +42,7 @@ func listProviderGenAsync(ctx context.Context) []string {
 	return names
 }
 
-func loadProviderGenAsync(ctx context.Context, provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.ProviderGenAsync, error) {
+func loadProviderGenAsync(ctx context.Context, provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.Provider, error) {
 	cfg := providers.All[provider]
 	if cfg.Factory == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
@@ -51,11 +51,10 @@ func loadProviderGenAsync(ctx context.Context, provider string, opts *genai.Prov
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
-	p, ok := c.(genai.ProviderGenAsync)
-	if !ok {
-		return nil, fmt.Errorf("provider %q doesn't implement genai.ProviderGenAsync", provider)
+	if !c.Capabilities().GenAsync {
+		return nil, fmt.Errorf("provider %q doesn't support async generation", provider)
 	}
-	return p, nil
+	return c, nil
 }
 
 type stringsFlag []string
@@ -161,11 +160,13 @@ func cmdGet(args []string) error {
 	if !slices.Contains(names, *provider) {
 		return errors.New("unknown provider")
 	}
-	b, err := providers.All[*provider].Factory(ctx, &genai.ProviderOptions{}, wrapper)
+	c, err := providers.All[*provider].Factory(ctx, &genai.ProviderOptions{}, wrapper)
 	if err != nil {
 		return err
 	}
-	c := b.(genai.ProviderGenAsync)
+	if !c.Capabilities().GenAsync {
+		return fmt.Errorf("provider %q doesn't support async generation", *provider)
+	}
 
 	for {
 		res, err := c.PokeResult(ctx, job)
