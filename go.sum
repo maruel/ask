@@ -20,8 +20,8 @@ github.com/mailru/easyjson v0.9.1 h1:LbtsOm5WAswyWbvTEOqhypdPeZzHavpZx96/n553mR8
 github.com/mailru/easyjson v0.9.1/go.mod h1:1+xMtQp2MRNVL/V1bOzuP3aP8VNwRW55fQUto+XFtTU=
 github.com/maruel/genai v0.0.0-20260204025906-e37ffb03fc60 h1:xAlCqi1i5G9fQ1W8y+2fFjCA4alTPQTkkS4uz6zy3iA=
 github.com/maruel/genai v0.0.0-20260204025906-e37ffb03fc60/go.mod h1:5umBYxgRJHAjfc++Gto7w1Hnys5WHHHjwtkfiky5MSg=
-github.com/maruel/genaitools v0.0.0-20260204030149-f283a25cc4ea h1:NaKjcs8IbdkF6kudrJrJwZZNty+ak/95OTlejcocJAQ=
-github.com/maruel/genaitools v0.0.0-20260204030149-f283a25cc4ea/go.mod h1:O8doFXboUpWM5XQGj9jQLi2Kfh1GalbaGh8KMlcCEg0=
+github.com/maruel/genaitools v0.0.0-20260204154511-eb0dc3ef8461 h1:8JK1Qfa6WKu4yA56wilWIOOWoezjWuaX3NX0KhYCsSY=
+github.com/maruel/genaitools v0.0.0-20260204154511-eb0dc3ef8461/go.mod h1:O8doFXboUpWM5XQGj9jQLi2Kfh1GalbaGh8KMlcCEg0=
 github.com/maruel/httpjson v0.5.0 h1:fUkECNt2G2rSi9rzklMVcElsiucUj8LoKhKqaUvlaYA=
 github.com/maruel/httpjson v0.5.0/go.mod h1:Rbue+VwOe1TC6doGXddW8EWg2fW4Je6RhCo7iPuNpTo=
 github.com/maruel/huggingface v0.1.0 h1:+xhVTNrTxDjAvS+8UYp5Swd9bY63UfYRXXKk/DO5LRw=
