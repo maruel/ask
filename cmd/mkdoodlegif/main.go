@@ -74,8 +74,8 @@ func run(ctx context.Context, query, filename string) error {
 		&genai.GenOptionsText{
 			SystemPrompt: systemPrompt,
 			Temperature:  1,
-			Seed:         1,
 		},
+		genai.GenOptionsSeed(1),
 	}
 	msg, err := runSync(ctx, cBase, msgs, opts...)
 	if err != nil {
@@ -104,8 +104,8 @@ func run(ctx context.Context, query, filename string) error {
 	opts = []genai.GenOptions{
 		&genai.GenOptionsText{
 			Temperature: 1,
-			Seed:        1,
 		},
+		genai.GenOptionsSeed(1),
 		&gemini.GenOptions{ThinkingBudget: 0},
 	}
 	cImg, err := gemini.New(ctx,

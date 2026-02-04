@@ -30,7 +30,7 @@ import (
 func listProviderGenAsync(ctx context.Context) []string {
 	var names []string
 	for name, cfg := range providers.Available(ctx) {
-		c, err := cfg.Factory(ctx, genai.ProviderOptionModel(genai.ModelNone))
+		c, err := cfg.Factory(ctx)
 		if err != nil {
 			continue
 		}
@@ -91,7 +91,7 @@ func cmdEnqueue(args []string) error {
 		return errors.New("-provider is required")
 	}
 	if *model == "" {
-		*model = genai.ModelCheap
+		*model = string(genai.ModelCheap)
 	}
 	c, err := loadProviderGenAsync(ctx, *provider, append(popts, genai.ProviderOptionModel(*model))...)
 	if err != nil {
