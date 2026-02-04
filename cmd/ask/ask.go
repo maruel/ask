@@ -42,13 +42,13 @@ func (s *stringsFlag) String() string {
 	return strings.Join(([]string)(*s), ", ")
 }
 
-func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOptions, wrapper func(http.RoundTripper) http.RoundTripper) (genai.Provider, error) {
+func loadProvider(ctx context.Context, provider string, opts ...genai.ProviderOption) (genai.Provider, error) {
 	if provider == "" {
 		// If there's only one available, use it!
 		provs := providers.Available(ctx)
 		if len(provs) == 1 {
 			for name, cfg := range provs {
-				c, err := cfg.Factory(ctx, opts, wrapper)
+				c, err := cfg.Factory(ctx, opts...)
 				if err != nil {
 					return nil, fmt.Errorf("failed to connect to provider %q: %w", name, err)
 				}
@@ -65,7 +65,7 @@ func loadProvider(ctx context.Context, provider string, opts *genai.ProviderOpti
 	if cfg.Factory == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	c, err := cfg.Factory(ctx, opts, wrapper)
+	c, err := cfg.Factory(ctx, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
@@ -145,7 +145,7 @@ func Main() error {
 	}
 	var rr *recorder.Recorder
 	var errRR error
-	wrapper := func(h http.RoundTripper) http.RoundTripper {
+	wrapper := genai.ProviderOptionTransportWrapper(func(h http.RoundTripper) http.RoundTripper {
 		if *verbose {
 			h = &roundtrippers.Log{Transport: h, Logger: slog.Default()}
 		}
@@ -155,21 +155,25 @@ func Main() error {
 			h = rr
 		}
 		return h
-	}
+	})
 
 	// Load provider.
-	provOpts := genai.ProviderOptions{Model: *model, Remote: *remote}
-	if *listModels {
-		provOpts.Model = genai.ModelNone
+	provOpts := []genai.ProviderOption{wrapper}
+	if *model != "" {
+		provOpts = append(provOpts, genai.ProviderOptionModel(*model))
+	}
+	if *remote != "" && !*listModels {
+		provOpts = append(provOpts, genai.ProviderOptionRemote(*remote))
 	}
 	if *mod != "" {
 		parts := strings.Split(*mod, ",")
-		provOpts.OutputModalities = make(genai.Modalities, len(parts))
+		o := make(genai.Modalities, len(parts))
 		for i, p := range parts {
-			provOpts.OutputModalities[i] = genai.Modality(strings.TrimSpace(p))
+			o[i] = genai.Modality(strings.TrimSpace(p))
 		}
+		provOpts = append(provOpts, genai.ProviderOptionModalities(o))
 	}
-	c, err := loadProvider(ctx, *provider, &provOpts, wrapper)
+	c, err := loadProvider(ctx, *provider, provOpts...)
 	if err != nil {
 		return err
 	}
@@ -248,9 +252,9 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 		return errors.New("provide a prompt as an argument or input files")
 	}
 	msgs = append(msgs, userMsg)
-	var opts []genai.Options
+	var opts []genai.GenOptions
 	if systemPrompt != "" {
-		opts = append(opts, &genai.OptionsText{SystemPrompt: systemPrompt})
+		opts = append(opts, &genai.GenOptionsText{SystemPrompt: systemPrompt})
 	}
 
 	useTools := false
@@ -264,12 +268,12 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 		}
 	}
 	if !useTools && useWeb {
-		opts = append(opts, &genai.OptionsTools{WebSearch: true})
+		opts = append(opts, &genai.GenOptionsTools{WebSearch: true})
 	}
 	return execRequest(ctx, c, msgs, opts, useTools, quiet)
 }
 
-func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opts []genai.Options, useTools, quiet bool) error {
+func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opts []genai.GenOptions, useTools, quiet bool) error {
 	w := colorable.NewColorableStdout()
 	// Send request.
 	var fragments iter.Seq[genai.Reply]
