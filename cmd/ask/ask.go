@@ -252,28 +252,27 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 		return errors.New("provide a prompt as an argument or input files")
 	}
 	msgs = append(msgs, userMsg)
-	var opts []genai.GenOptions
+	var opts []genai.GenOption
 	if systemPrompt != "" {
-		opts = append(opts, &genai.GenOptionsText{SystemPrompt: systemPrompt})
+		opts = append(opts, &genai.GenOptionText{SystemPrompt: systemPrompt})
 	}
 
 	useTools := false
 	if useShell {
 		if o, err := shelltool.New(false); o != nil {
 			useTools = true
-			o.WebSearch = useWeb
 			opts = append(opts, o)
 		} else {
 			fmt.Fprintf(os.Stderr, "warning: could not find sandbox: %v\n", err)
 		}
 	}
-	if !useTools && useWeb {
-		opts = append(opts, &genai.GenOptionsTools{WebSearch: true})
+	if useWeb {
+		opts = append(opts, &genai.GenOptionWeb{Search: true})
 	}
 	return execRequest(ctx, c, msgs, opts, useTools, quiet)
 }
 
-func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opts []genai.GenOptions, useTools, quiet bool) error {
+func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opts []genai.GenOption, useTools, quiet bool) error {
 	w := colorable.NewColorableStdout()
 	// Send request.
 	var fragments iter.Seq[genai.Reply]

@@ -122,7 +122,7 @@ func cmdEnqueue(args []string) error {
 	if len(msgs) == 0 {
 		return errors.New("provide a prompt as an argument or input files")
 	}
-	opts := genai.GenOptionsText{SystemPrompt: *systemPrompt}
+	opts := genai.GenOptionText{SystemPrompt: *systemPrompt}
 	job, err := c.GenAsync(ctx, msgs, &opts)
 	if err != nil {
 		return err

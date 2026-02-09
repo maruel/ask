@@ -35,12 +35,12 @@ const systemPrompt = `**Generate simple, animated doodle GIFs on white from user
 **Key Constraints:** No racial labels. Neutral skin tone descriptors when included. Cartoonish/doodle style always implied, especially for people. One text display method only.
 `
 
-func runSync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts ...genai.GenOptions) (genai.Message, error) {
+func runSync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts ...genai.GenOption) (genai.Message, error) {
 	res, err := c.GenSync(ctx, msgs, opts...)
 	return res.Message, err
 }
 
-func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts ...genai.GenOptions) (genai.Message, error) {
+func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts ...genai.GenOption) (genai.Message, error) {
 	fragments, finish := c.GenStream(ctx, msgs, opts...)
 	hasLF := false
 	start := true
@@ -70,12 +70,12 @@ func run(ctx context.Context, query, filename string) error {
 	}
 	fmt.Printf("Generating prompt...\n")
 	msgs := genai.Messages{genai.NewTextMessage(query)}
-	opts := []genai.GenOptions{
-		&genai.GenOptionsText{
+	opts := []genai.GenOption{
+		&genai.GenOptionText{
 			SystemPrompt: systemPrompt,
 			Temperature:  1,
 		},
-		genai.GenOptionsSeed(1),
+		genai.GenOptionSeed(1),
 	}
 	msg, err := runSync(ctx, cBase, msgs, opts...)
 	if err != nil {
@@ -101,12 +101,12 @@ func run(ctx context.Context, query, filename string) error {
 	msgs = genai.Messages{
 		genai.NewTextMessage(contents),
 	}
-	opts = []genai.GenOptions{
-		&genai.GenOptionsText{
+	opts = []genai.GenOption{
+		&genai.GenOptionText{
 			Temperature: 1,
 		},
-		genai.GenOptionsSeed(1),
-		&gemini.GenOptions{ThinkingBudget: 0},
+		genai.GenOptionSeed(1),
+		&gemini.GenOption{ThinkingBudget: 0},
 	}
 	cImg, err := gemini.New(ctx,
 		genai.ProviderOptionModel("gemini-2.5-flash-image-preview"),
