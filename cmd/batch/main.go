@@ -65,7 +65,7 @@ func (s *stringsFlag) Set(value string) error {
 }
 
 func (s *stringsFlag) String() string {
-	return strings.Join(([]string)(*s), ", ")
+	return strings.Join([]string(*s), ", ")
 }
 
 func cmdEnqueue(args []string) error {
@@ -102,12 +102,18 @@ func cmdEnqueue(args []string) error {
 	if query := strings.Join(flag.Args(), " "); query != "" {
 		msgs = append(msgs, genai.NewTextMessage(query))
 	}
+	var closers []io.Closer
+	defer func() {
+		for _, c := range closers {
+			_ = c.Close()
+		}
+	}()
 	for _, n := range files {
 		f, err2 := os.Open(n)
 		if err2 != nil {
 			return err2
 		}
-		defer f.Close()
+		closers = append(closers, f)
 		mimeType := mime.TypeByExtension(filepath.Ext(n))
 		if strings.HasPrefix(mimeType, "text/plain") {
 			d, err2 := io.ReadAll(f)
@@ -177,20 +183,22 @@ func cmdGet(args []string) error {
 			time.Sleep(time.Second)
 			continue
 		}
-		if s := res.String(); len(s) != 0 {
+		if s := res.String(); s != "" {
 			fmt.Printf("%s\n", s)
 		}
-		for _, c := range res.Replies {
-			if c.Doc.Src != nil {
-				n := c.Doc.GetFilename()
-				fmt.Printf("- Writing %s\n", n)
-				d, err := io.ReadAll(c.Doc.Src)
-				if err != nil {
-					return err
-				}
-				if err = os.WriteFile(n, d, 0o644); err != nil {
-					return err
-				}
+		for j := range res.Replies {
+			c := &res.Replies[j]
+			if c.Doc.Src == nil {
+				continue
+			}
+			n := c.Doc.GetFilename()
+			fmt.Printf("- Writing %s\n", n)
+			d, err := io.ReadAll(c.Doc.Src)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(n, d, 0o644); err != nil {
+				return err
 			}
 		}
 		return nil
@@ -213,7 +221,7 @@ func mainImpl() error {
 
 func main() {
 	if err := mainImpl(); err != nil {
-		if err != context.Canceled {
+		if !errors.Is(err, context.Canceled) {
 			fmt.Fprintf(os.Stderr, "batch: %s\n", err)
 		}
 		os.Exit(1)

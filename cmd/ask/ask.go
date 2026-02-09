@@ -39,7 +39,7 @@ func (s *stringsFlag) Set(value string) error {
 }
 
 func (s *stringsFlag) String() string {
-	return strings.Join(([]string)(*s), ", ")
+	return strings.Join([]string(*s), ", ")
 }
 
 func loadProvider(ctx context.Context, provider string, opts ...genai.ProviderOption) (genai.Provider, error) {
@@ -84,22 +84,22 @@ func Main() error {
 
 	flag.Usage = func() {
 		w := flag.CommandLine.Output()
-		fmt.Fprintf(w, "Usage: %s [options] <prompt>\n\n", os.Args[0])
+		_, _ = fmt.Fprintf(w, "Usage: %s [options] <prompt>\n\n", os.Args[0])
 		flag.PrintDefaults()
-		fmt.Fprintf(w, "\nInput methods:\n")
-		fmt.Fprintf(w, "  - Prompt argument: ask \"your question\"\n")
-		fmt.Fprintf(w, "  - Files: ask -f file.txt -f image.jpg \"your question\"\n")
-		fmt.Fprintf(w, "  - Stdin: cat file.txt | ask \"analyze this\"\n")
-		fmt.Fprintf(w, "  - URLs: ask -f https://example.com/image.jpg \"what is this?\"\n")
-		fmt.Fprintf(w, "\nOn macOS, or linux when bubblewrap (bwrap) is installed, tool calling is enabled with a read-only file system.\n")
-		fmt.Fprintf(w, "\nEnvironment variables:\n")
-		fmt.Fprintf(w, "  ASK_MODEL:         default value for -model\n")
-		fmt.Fprintf(w, "  ASK_PROVIDER:      default value for -provider\n")
-		fmt.Fprintf(w, "  ASK_REMOTE:        default value for -remote\n")
-		fmt.Fprintf(w, "  ASK_SYSTEM_PROMPT: default value for -sys\n")
-		fmt.Fprintf(w, "\nPerformance:\n")
-		fmt.Fprintf(w, "  Model auto detection (%s, %s, %s) requires an HTTP request which will\n", genai.ModelCheap, genai.ModelGood, genai.ModelSOTA)
-		fmt.Fprintf(w, "  take ~100ms. If you want it to be fast, make sure to specify a model!\n")
+		_, _ = fmt.Fprintf(w, "\nInput methods:\n")
+		_, _ = fmt.Fprintf(w, "  - Prompt argument: ask \"your question\"\n")
+		_, _ = fmt.Fprintf(w, "  - Files: ask -f file.txt -f image.jpg \"your question\"\n")
+		_, _ = fmt.Fprintf(w, "  - Stdin: cat file.txt | ask \"analyze this\"\n")
+		_, _ = fmt.Fprintf(w, "  - URLs: ask -f https://example.com/image.jpg \"what is this?\"\n")
+		_, _ = fmt.Fprintf(w, "\nOn macOS, or linux when bubblewrap (bwrap) is installed, tool calling is enabled with a read-only file system.\n")
+		_, _ = fmt.Fprintf(w, "\nEnvironment variables:\n")
+		_, _ = fmt.Fprintf(w, "  ASK_MODEL:         default value for -model\n")
+		_, _ = fmt.Fprintf(w, "  ASK_PROVIDER:      default value for -provider\n")
+		_, _ = fmt.Fprintf(w, "  ASK_REMOTE:        default value for -remote\n")
+		_, _ = fmt.Fprintf(w, "  ASK_SYSTEM_PROMPT: default value for -sys\n")
+		_, _ = fmt.Fprintf(w, "\nPerformance:\n")
+		_, _ = fmt.Fprintf(w, "  Model auto detection (%s, %s, %s) requires an HTTP request which will\n", genai.ModelCheap, genai.ModelGood, genai.ModelSOTA)
+		_, _ = fmt.Fprintf(w, "  take ~100ms. If you want it to be fast, make sure to specify a model!\n")
 	}
 	// General.
 	verbose := flag.Bool("v", false, "verbose logs about metadata and usage")
@@ -189,19 +189,19 @@ func Main() error {
 
 	if *listModels {
 		if len(flag.Args()) != 0 {
-			return fmt.Errorf("cannot use -models with arguments")
+			return errors.New("cannot use -models with arguments")
 		}
 		if len(files) != 0 {
-			return fmt.Errorf("cannot use -models with files")
+			return errors.New("cannot use -models with files")
 		}
 		if *systemPrompt != "" {
-			return fmt.Errorf("cannot use -models with system prompt")
+			return errors.New("cannot use -models with system prompt")
 		}
 		if *useShell {
-			return fmt.Errorf("cannot use -models with -bash")
+			return errors.New("cannot use -models with -bash")
 		}
 		if *useWeb {
-			return fmt.Errorf("cannot use -models with -web")
+			return errors.New("cannot use -models with -web")
 		}
 		err = printModels(ctx, c)
 	} else {
@@ -221,7 +221,7 @@ func printModels(ctx context.Context, c genai.Provider) error {
 	}
 	for _, m := range mdls {
 		// This is barebone, we'll want a cleaner output. In particular highlight which are CHEAP, GOOD and SOTA.
-		fmt.Fprintln(w, m)
+		_, _ = fmt.Fprintln(w, m)
 	}
 	return err
 }
@@ -233,6 +233,12 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 	if query := strings.Join(args, " "); query != "" {
 		userMsg.Requests = append(userMsg.Requests, genai.Request{Text: query})
 	}
+	var closers []io.Closer
+	defer func() {
+		for _, c := range closers {
+			_ = c.Close()
+		}
+	}()
 	for _, n := range files {
 		if strings.HasPrefix(n, "http://") || strings.HasPrefix(n, "https://") {
 			userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{URL: n}})
@@ -242,7 +248,7 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		closers = append(closers, f)
 		userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{Src: f}})
 	}
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
@@ -332,12 +338,13 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 				}
 				_, _ = io.WriteString(w, hiblack+"Citation:\n"+reset)
 			}
-			for _, src := range f.Citation.Sources {
+			for j := range f.Citation.Sources {
+				src := &f.Citation.Sources[j]
 				switch src.Type {
 				case genai.CitationWeb:
-					fmt.Fprintf(w, "  - %s / %s\n", src.Title, src.URL)
+					_, _ = fmt.Fprintf(w, "  - %s / %s\n", src.Title, src.URL)
 				case genai.CitationWebImage:
-					fmt.Fprintf(w, "  - Image: %s\n", src.URL)
+					_, _ = fmt.Fprintf(w, "  - Image: %s\n", src.URL)
 				case genai.CitationWebQuery, genai.CitationDocument, genai.CitationTool:
 				default:
 				}
@@ -365,36 +372,21 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 		usage = res.Usage
 	}
 	// Still process the files even if there was an error.
-	for _, r := range msg.Replies {
+	for i := range msg.Replies {
+		r := &msg.Replies[i]
 		if r.Doc.IsZero() {
 			continue
 		}
-		n, err2 := findAvailable(r.Doc.GetFilename())
-		if err2 != nil {
-			return err2
-		}
-		fmt.Fprintf(w, "- Writing %s\n", n)
+		n := findAvailable(r.Doc.GetFilename())
+		_, _ = fmt.Fprintf(w, "- Writing %s\n", n)
 
 		// The image can be returned as an URL or inline, depending on the provider. Always save it since it won't
 		// be available for long.
-		var src io.Reader
-		if r.Doc.URL != "" {
-			req, err3 := c.HTTPClient().Get(r.Doc.URL)
-			if err3 != nil {
-				return err3
-			} else if req.StatusCode != http.StatusOK {
-				return fmt.Errorf("got status code %d while retrieving %s", req.StatusCode, r.Doc.URL)
-			}
-			src = req.Body
-			defer req.Body.Close()
-		} else {
-			src = r.Doc.Src
-		}
-		b, err2 := io.ReadAll(src)
+		b, err2 := downloadDoc(c, r)
 		if err2 != nil {
 			return err2
 		}
-		if err2 = os.WriteFile(n, b, 0o644); err2 != nil {
+		if err2 := os.WriteFile(n, b, 0o644); err2 != nil {
 			return err2
 		}
 	}
@@ -402,12 +394,27 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 	return err
 }
 
+func downloadDoc(c genai.Provider, r *genai.Reply) ([]byte, error) {
+	if r.Doc.URL != "" {
+		resp, err := c.HTTPClient().Get(r.Doc.URL)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { _ = resp.Body.Close() }()
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("got status code %d while retrieving %s", resp.StatusCode, r.Doc.URL)
+		}
+		return io.ReadAll(resp.Body)
+	}
+	return io.ReadAll(r.Doc.Src)
+}
+
 // findAvailable checks if a file with the given name exists, and if so, append an index number.
 //
 // TODO: O(n²); I'd fail the interview.
-func findAvailable(filename string) (string, error) {
+func findAvailable(filename string) string {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		return filename, nil
+		return filename
 	}
 	dir := filepath.Dir(filename)
 	base := filepath.Base(filename)
@@ -417,7 +424,7 @@ func findAvailable(filename string) (string, error) {
 		newName := fmt.Sprintf("%s_%d%s", name, i, ext)
 		newPath := filepath.Join(dir, newName)
 		if _, err := os.Stat(newPath); os.IsNotExist(err) {
-			return newPath, nil
+			return newPath
 		}
 	}
 }

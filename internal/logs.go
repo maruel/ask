@@ -18,12 +18,14 @@ import (
 	"github.com/mattn/go-isatty"
 )
 
+// Level controls the logging level for the application.
 var Level = &slog.LevelVar{}
 
 func init() {
 	Level.Set(slog.LevelError)
 }
 
+// Init initializes signal handling and logging, returning a cancellable context.
 func Init() (context.Context, context.CancelFunc) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	logger := slog.New(tint.NewHandler(colorable.NewColorableStderr(), &tint.Options{

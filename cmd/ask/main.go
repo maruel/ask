@@ -10,13 +10,14 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 )
 
 func main() {
 	if err := Main(); err != nil {
-		if err != context.Canceled {
+		if !errors.Is(err, context.Canceled) {
 			fmt.Fprintf(os.Stderr, "%s: %s\n", os.Args[0], err)
 		}
 		os.Exit(1)

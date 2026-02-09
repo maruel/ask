@@ -120,14 +120,16 @@ func run(ctx context.Context, query, filename string) error {
 	}
 	var imgs []image.Image
 	index := 0
-	for _, r := range msg.Replies {
-		if r.Text != "" {
+	for i := range msg.Replies {
+		r := &msg.Replies[i]
+		switch {
+		case r.Text != "":
 			if strings.TrimSpace(r.Text) != "" {
 				fmt.Printf("%s\n", r.Text)
 			}
-		} else if r.Reasoning != "" {
+		case r.Reasoning != "":
 			fmt.Printf("%s\n", r.Reasoning)
-		} else if r.Doc.Src != nil {
+		case r.Doc.Src != nil:
 			n := r.Doc.GetFilename()
 			if !strings.HasSuffix(n, ".png") {
 				fmt.Printf("Unexpected file %q\n", n)
@@ -151,9 +153,9 @@ func run(ctx context.Context, query, filename string) error {
 			if err != nil {
 				return err
 			}
-		} else if r.Doc.URL != "" {
+		case r.Doc.URL != "":
 			fmt.Printf("URL: %s\n", r.Doc.URL)
-		} else {
+		default:
 			return fmt.Errorf("unexpected content: %+v", r)
 		}
 	}
@@ -181,7 +183,7 @@ func run(ctx context.Context, query, filename string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return gif.EncodeAll(f, &g)
 }
 
@@ -328,7 +330,7 @@ func mainImpl() error {
 
 func main() {
 	if err := mainImpl(); err != nil {
-		if err != context.Canceled {
+		if !errors.Is(err, context.Canceled) {
 			fmt.Fprintf(os.Stderr, "mkdoodlegif: %s\n", err)
 		}
 		os.Exit(1)
