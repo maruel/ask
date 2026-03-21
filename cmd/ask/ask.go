@@ -228,7 +228,7 @@ func printModels(ctx context.Context, c genai.Provider) error {
 
 func sendRequest(ctx context.Context, c genai.Provider, args []string, files stringsFlag, systemPrompt string, useShell, useWeb, quiet bool) error {
 	// Process inputs
-	var msgs genai.Messages
+	msgs := make(genai.Messages, 0, 1)
 	userMsg := genai.Message{}
 	if query := strings.Join(args, " "); query != "" {
 		userMsg.Requests = append(userMsg.Requests, genai.Request{Text: query})
