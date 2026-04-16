@@ -44,22 +44,35 @@ func (s *stringsFlag) String() string {
 
 func loadProvider(ctx context.Context, provider string, opts ...genai.ProviderOption) (genai.Provider, error) {
 	if provider == "" {
-		// If there's only one available, use it!
 		provs := providers.Available(ctx)
+		if len(provs) == 0 {
+			return nil, errors.New("no providers available, make sure to set an FOO_API_KEY env var or install codex/claude")
+		}
+		// If there's only one, use it directly.
 		if len(provs) == 1 {
-			for name, cfg := range provs {
-				c, err := cfg.Factory(ctx, opts...)
+			for name := range provs {
+				c, err := provs[name].Factory(ctx, opts...)
 				if err != nil {
 					return nil, fmt.Errorf("failed to connect to provider %q: %w", name, err)
 				}
 				return adapters.WrapReasoning(c), nil
 			}
 		}
-		if len(provs) == 0 {
-			return nil, errors.New("no providers available, make sure to set an FOO_API_KEY env var")
+		// Prefer CLI-based providers, then first alphabetically.
+		order := append([]string{"codex", "claudecode"}, slices.Sorted(maps.Keys(provs))...)
+		for _, name := range order {
+			cfg, ok := provs[name]
+			if !ok {
+				continue
+			}
+			c, err := cfg.Factory(ctx, opts...)
+			if err != nil {
+				slog.Debug("provider skipped", "provider", name, "error", err)
+				continue
+			}
+			return adapters.WrapReasoning(c), nil
 		}
-		names := slices.Sorted(maps.Keys(provs))
-		return nil, fmt.Errorf("multiple providers available: %s", strings.Join(names, ", "))
+		return nil, errors.New("no providers could be loaded with the given options")
 	}
 	cfg := providers.All[provider]
 	if cfg.Factory == nil {
@@ -150,20 +163,22 @@ func Main() error {
 	}
 	var rr *recorder.Recorder
 	var errRR error
-	wrapper := genai.ProviderOptionTransportWrapper(func(h http.RoundTripper) http.RoundTripper {
-		if *verbose {
-			h = &roundtrippers.Log{Transport: h, Logger: slog.Default()}
-		}
-		if *record != "" {
-			slog.Info("recording", "dir", *record+".yaml")
-			rr, errRR = httprecord.New(*record, h)
-			h = rr
-		}
-		return h
-	})
 
 	// Load provider.
-	provOpts := []genai.ProviderOption{wrapper}
+	var provOpts []genai.ProviderOption
+	if *verbose || *record != "" {
+		provOpts = append(provOpts, genai.ProviderOptionTransportWrapper(func(h http.RoundTripper) http.RoundTripper {
+			if *verbose {
+				h = &roundtrippers.Log{Transport: h, Logger: slog.Default()}
+			}
+			if *record != "" {
+				slog.Info("recording", "dir", *record+".yaml")
+				rr, errRR = httprecord.New(*record, h)
+				h = rr
+			}
+			return h
+		}))
+	}
 	if *model != "" {
 		provOpts = append(provOpts, genai.ProviderOptionModel(*model))
 	}
