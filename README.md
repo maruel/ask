@@ -354,18 +354,26 @@ This may print:
 
 Supports all providers supported by [github.com/maruel/genai](https://github.com/maruel/genai):
 
+- Alibaba Cloud DashScope (Model Studio)
 - Anthropic
+- Baseten
+- Black Forest Labs (image generation)
 - Cerebras
+- Claude Code
 - Cloudflare Workers AI
+- Codex
 - Cohere
 - DeepSeek
+- GitHub Models
 - Google's Gemini
 - Groq
 - HuggingFace
 - llama.cpp
 - Mistral
 - Ollama
-- OpenAI
+- OpenAI (Chat and Responses APIs)
+- OpenAI-compatible (generic)
+- OpenRouter
 - Perplexity
 - Pollinations
 - TogetherAI
