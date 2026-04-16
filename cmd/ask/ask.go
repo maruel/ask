@@ -102,6 +102,7 @@ func Main() error {
 		_, _ = fmt.Fprintf(w, "  take ~100ms. If you want it to be fast, make sure to specify a model!\n")
 	}
 	// General.
+	versionFlag := flag.Bool("version", false, "print version and exit")
 	verbose := flag.Bool("v", false, "verbose logs about metadata and usage")
 	quiet := flag.Bool("q", false, "silence the thinking and citations")
 	record := flag.String("record", "", "record the HTTP requests in yaml files for inspection in the specified file.")
@@ -134,6 +135,10 @@ func Main() error {
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times; can be an URL")
 
 	flag.Parse()
+	if *versionFlag {
+		fmt.Println(version())
+		return nil
+	}
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
 	}
