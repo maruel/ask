@@ -1,0 +1,51 @@
+# Copyright 2026 Marc-Antoine Ruel. All rights reserved.
+# Use of this source code is governed under the Apache License, Version 2.0
+# that can be found in the LICENSE file.
+
+version: 2
+
+builds:
+  - id: ask
+    main: ./cmd/ask
+    binary: ask
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags: [-s, -w]
+    env: [CGO_ENABLED=0]
+  - id: batch
+    main: ./cmd/batch
+    binary: batch
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags: [-s, -w]
+    env: [CGO_ENABLED=0]
+  - id: mkdoodlegif
+    main: ./cmd/mkdoodlegif
+    binary: mkdoodlegif
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags: [-s, -w]
+    env: [CGO_ENABLED=0]
+
+universal_binaries:
+  - id: ask
+    replace: true
+    name_template: ask
+  - id: batch
+    replace: true
+    name_template: batch
+  - id: mkdoodlegif
+    replace: true
+    name_template: mkdoodlegif
+
+archives:
+  - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  use: git

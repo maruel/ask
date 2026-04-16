@@ -1,0 +1,195 @@
+# Copyright 2026 Marc-Antoine Ruel. All rights reserved.
+# Use of this source code is governed under the Apache License, Version 2.0
+# that can be found in the LICENSE file.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.0). Leave empty to auto-increment patch version.'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  APP_NAME: ask
+  BUNDLE_ID: com.fghbuild.ask
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.get_version.outputs.VERSION }}
+      has_apple_secrets: ${{ steps.check_secrets.outputs.HAS_APPLE_SECRETS }}
+    steps:
+      - name: Check Apple signing secrets
+        id: check_secrets
+        run: |
+          if [ -n "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}" ]; then
+            echo "HAS_APPLE_SECRETS=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "HAS_APPLE_SECRETS=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Determine Version
+        id: get_version
+        run: |
+          INPUT_VERSION="${{ inputs.version }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            echo "Using provided version: $INPUT_VERSION"
+            echo "VERSION=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "No version provided. Calculating next patch version..."
+            git fetch --tags --force
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.1.0")
+            echo "Latest tag found: $LATEST_TAG"
+            VERSION_NO_V="${LATEST_TAG#v}"
+            IFS='.' read -r -a parts <<< "$VERSION_NO_V"
+            MAJOR="${parts[0]:-0}"
+            MINOR="${parts[1]:-0}"
+            PATCH="${parts[2]:-0}"
+            NEW_PATCH=$((PATCH + 1))
+            NEW_VERSION="v$MAJOR.$MINOR.$NEW_PATCH"
+            echo "Auto-incremented version: $NEW_VERSION"
+            echo "VERSION=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate Version
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          if ! echo "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "error: version '$VERSION' does not match v{major}.{minor}.{patch} format" >&2
+            exit 1
+          fi
+      - name: Tag and push
+        run: |
+          git tag "${{ steps.get_version.outputs.VERSION }}"
+          git push origin "${{ steps.get_version.outputs.VERSION }}"
+
+  release:
+    needs: version
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v7
+        with:
+          version: latest
+          args: release
+        env:
+          GORELEASER_CURRENT_TAG: ${{ needs.version.outputs.version }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    needs: version
+    if: needs.version.outputs.has_apple_secrets == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.version.outputs.version }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Build Universal Binary
+        run: |
+          CGO_ENABLED=0 GOARCH=arm64 go build -trimpath -ldflags="-s -w" -o ${{ env.APP_NAME }}-arm64 ./cmd/${{ env.APP_NAME }}
+          CGO_ENABLED=0 GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o ${{ env.APP_NAME }}-amd64 ./cmd/${{ env.APP_NAME }}
+          lipo -create -output ${{ env.APP_NAME }} ${{ env.APP_NAME }}-arm64 ${{ env.APP_NAME }}-amd64
+          rm ${{ env.APP_NAME }}-arm64 ${{ env.APP_NAME }}-amd64
+      - name: Import Code-Signing Certificates
+        uses: Apple-Actions/import-codesign-certs@v6
+        with:
+          p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
+          p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
+      - name: Create App Bundle
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          mkdir -p ${{ env.APP_NAME }}.app/Contents/MacOS
+          mkdir -p ${{ env.APP_NAME }}.app/Contents/Resources
+          cp ${{ env.APP_NAME }} ${{ env.APP_NAME }}.app/Contents/MacOS/
+          cat > ${{ env.APP_NAME }}.app/Contents/Info.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleExecutable</key>
+              <string>${{ env.APP_NAME }}</string>
+              <key>CFBundleIdentifier</key>
+              <string>${{ env.BUNDLE_ID }}</string>
+              <key>CFBundleName</key>
+              <string>${{ env.APP_NAME }}</string>
+              <key>CFBundleVersion</key>
+              <string>${VERSION}</string>
+              <key>CFBundleShortVersionString</key>
+              <string>${VERSION}</string>
+              <key>CFBundlePackageType</key>
+              <string>APPL</string>
+              <key>LSMinimumSystemVersion</key>
+              <string>10.15</string>
+          </dict>
+          </plist>
+          EOF
+      - name: Sign App Bundle
+        run: |
+          codesign --sign "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_ID }}" \
+                   --timestamp --options runtime --verbose \
+                   ${{ env.APP_NAME }}.app/Contents/MacOS/${{ env.APP_NAME }}
+          codesign --sign "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_ID }}" \
+                   --timestamp --options runtime --verbose --deep \
+                   ${{ env.APP_NAME }}.app
+      - name: Verify Code Signing
+        run: |
+          codesign --verify --verbose ${{ env.APP_NAME }}.app
+          spctl --assess --verbose ${{ env.APP_NAME }}.app
+      - name: Create ZIP for Notarization
+        run: zip -r ${{ env.APP_NAME }}.zip ${{ env.APP_NAME }}.app
+      - name: Notarize App
+        run: |
+          xcrun notarytool submit ${{ env.APP_NAME }}.zip \
+                          --apple-id "${{ secrets.APPLE_ID }}" \
+                          --password "${{ secrets.APPLE_APP_PASSWORD }}" \
+                          --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+                          --wait
+          xcrun stapler staple ${{ env.APP_NAME }}.app
+      - name: Verify Notarization
+        run: |
+          xcrun stapler validate ${{ env.APP_NAME }}.app
+          spctl --assess --verbose --type execute ${{ env.APP_NAME }}.app
+      - name: Create and Sign DMG
+        run: |
+          mkdir dmg-contents
+          cp -R ${{ env.APP_NAME }}.app dmg-contents/
+          ln -s /Applications dmg-contents/Applications
+          hdiutil create -volname "${{ env.APP_NAME }}" \
+                         -srcfolder dmg-contents \
+                         -ov -format UDZO \
+                         ${{ env.APP_NAME }}.dmg
+          codesign --sign "${{ secrets.APPLE_DEVELOPER_CERTIFICATE_ID }}" \
+                   --timestamp \
+                   ${{ env.APP_NAME }}.dmg
+      - name: Notarize DMG
+        run: |
+          xcrun notarytool submit ${{ env.APP_NAME }}.dmg \
+                          --apple-id "${{ secrets.APPLE_ID }}" \
+                          --password "${{ secrets.APPLE_APP_PASSWORD }}" \
+                          --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+                          --wait
+          xcrun stapler staple ${{ env.APP_NAME }}.dmg
+      - name: Upload macOS artifacts to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ needs.version.outputs.version }}" \
+            ${{ env.APP_NAME }}.dmg \
+            ${{ env.APP_NAME }}.zip \
+            --clobber
