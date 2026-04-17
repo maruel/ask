@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/lmittmann/tint v1.1.3
-	github.com/maruel/genai v0.4.3
+	github.com/maruel/genai v0.5.0
 	github.com/maruel/genaitools v0.2.1
 	github.com/maruel/roundtrippers v0.5.0
 	github.com/mattn/go-colorable v0.1.14
@@ -27,7 +27,3 @@ require (
 	golang.org/x/sys v0.43.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-// replace github.com/maruel/genai => ../genai
-
-// replace github.com/maruel/httpjson => ../httpjson

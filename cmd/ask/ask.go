@@ -24,6 +24,7 @@ import (
 	"github.com/maruel/genai/adapters"
 	"github.com/maruel/genai/httprecord"
 	"github.com/maruel/genai/providers"
+	"github.com/maruel/genai/subprocessrecord"
 	"github.com/maruel/genaitools/shelltool"
 	"github.com/maruel/roundtrippers"
 	"github.com/mattn/go-colorable"
@@ -46,12 +47,12 @@ func loadProvider(ctx context.Context, provider string, opts ...genai.ProviderOp
 	if provider == "" {
 		provs := providers.Available(ctx)
 		if len(provs) == 0 {
-			return nil, errors.New("no providers available, make sure to set an FOO_API_KEY env var or install codex/claude")
+			return nil, errors.New("no providers available, make sure to set an FOO_API_KEY env var or install pi/codex/opencode/claude")
 		}
 		// If there's only one, use it directly.
 		if len(provs) == 1 {
-			for name := range provs {
-				c, err := provs[name].Factory(ctx, opts...)
+			for name, cfg := range provs {
+				c, err := cfg.Factory(ctx, filterOpts(cfg.IsCLI, opts)...)
 				if err != nil {
 					return nil, fmt.Errorf("failed to connect to provider %q: %w", name, err)
 				}
@@ -59,13 +60,13 @@ func loadProvider(ctx context.Context, provider string, opts ...genai.ProviderOp
 			}
 		}
 		// Prefer CLI-based providers, then first alphabetically.
-		order := append([]string{"codex", "claudecode"}, slices.Sorted(maps.Keys(provs))...)
+		order := append([]string{"pi", "codex", "opencode", "claudecode"}, slices.Sorted(maps.Keys(provs))...)
 		for _, name := range order {
 			cfg, ok := provs[name]
 			if !ok {
 				continue
 			}
-			c, err := cfg.Factory(ctx, opts...)
+			c, err := cfg.Factory(ctx, filterOpts(cfg.IsCLI, opts)...)
 			if err != nil {
 				slog.Debug("provider skipped", "provider", name, "error", err)
 				continue
@@ -78,11 +79,31 @@ func loadProvider(ctx context.Context, provider string, opts ...genai.ProviderOp
 	if cfg.Factory == nil {
 		return nil, fmt.Errorf("unknown provider %q", provider)
 	}
-	c, err := cfg.Factory(ctx, opts...)
+	c, err := cfg.Factory(ctx, filterOpts(cfg.IsCLI, opts)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
 	return adapters.WrapReasoning(c), nil
+}
+
+// filterOpts returns opts appropriate for the provider kind.
+// CLI providers use ProviderOptionStarterWrapper; HTTP providers use ProviderOptionTransportWrapper.
+func filterOpts(isCLI bool, opts []genai.ProviderOption) []genai.ProviderOption {
+	out := make([]genai.ProviderOption, 0, len(opts))
+	for _, o := range opts {
+		switch o.(type) {
+		case genai.ProviderOptionTransportWrapper:
+			if isCLI {
+				continue
+			}
+		case genai.ProviderOptionStarterWrapper:
+			if !isCLI {
+				continue
+			}
+		}
+		out = append(out, o)
+	}
+	return out
 }
 
 const (
@@ -156,27 +177,57 @@ func Main() error {
 		internal.Level.Set(slog.LevelDebug)
 	}
 	if *record != "" {
-		if !strings.HasSuffix(*record, ".yaml") {
-			return errors.New("record must end with .yaml")
+		// Strip known extensions; the base is used for both .yaml and .ndjson.
+		for _, ext := range []string{".yaml", ".ndjson"} {
+			*record = strings.TrimSuffix(*record, ext)
 		}
-		*record = (*record)[:len(*record)-len(".yaml")]
 	}
 	var rr *recorder.Recorder
 	var errRR error
+	var sr *subprocessrecord.Recorder
 
 	// Load provider.
 	var provOpts []genai.ProviderOption
 	if *verbose || *record != "" {
+		// HTTP providers.
 		provOpts = append(provOpts, genai.ProviderOptionTransportWrapper(func(h http.RoundTripper) http.RoundTripper {
 			if *verbose {
 				h = &roundtrippers.Log{Transport: h, Logger: slog.Default()}
 			}
 			if *record != "" {
-				slog.Info("recording", "dir", *record+".yaml")
+				slog.Info("recording HTTP", "file", *record+".yaml")
 				rr, errRR = httprecord.New(*record, h)
 				h = rr
 			}
 			return h
+		}))
+		// CLI providers.
+		var wrappers []genai.ProviderOptionStarterWrapper
+		if *verbose {
+			wrappers = append(wrappers, func(inner genai.Starter) genai.Starter {
+				return func(ctx context.Context, args []string) (io.WriteCloser, io.ReadCloser, func() error, error) {
+					slog.Info("subprocess start", "args", args)
+					stdin, stdout, wait, err := inner(ctx, args)
+					if err != nil {
+						return nil, nil, nil, err
+					}
+					return stdin, &logReader{ReadCloser: stdout}, wait, nil
+				}
+			})
+		}
+		if *record != "" {
+			var err error
+			sr, err = subprocessrecord.New(*record)
+			if err != nil {
+				return err
+			}
+			wrappers = append(wrappers, sr.Wrap)
+		}
+		provOpts = append(provOpts, genai.ProviderOptionStarterWrapper(func(s genai.Starter) genai.Starter {
+			for _, w := range wrappers {
+				s = w(s)
+			}
+			return s
 		}))
 	}
 	if *model != "" {
@@ -200,9 +251,15 @@ func Main() error {
 	slog.Info("loaded", "provider", c.Name(), "model", c.ModelID())
 	if rr != nil {
 		defer func() {
-			// TODO: Return error instead of logging.
 			if err2 := rr.Stop(); err2 != nil {
-				slog.Error("failed to stop recorder", "error", err2)
+				slog.Error("failed to stop HTTP recorder", "error", err2)
+			}
+		}()
+	}
+	if sr != nil {
+		defer func() {
+			if err2 := sr.Stop(); err2 != nil {
+				slog.Error("failed to stop subprocess recorder", "error", err2)
 			}
 		}()
 	}
@@ -447,4 +504,17 @@ func findAvailable(filename string) string {
 			return newPath
 		}
 	}
+}
+
+// logReader wraps an io.ReadCloser and logs each chunk read from it.
+type logReader struct {
+	io.ReadCloser
+}
+
+func (l *logReader) Read(p []byte) (int, error) {
+	n, err := l.ReadCloser.Read(p)
+	if n > 0 {
+		slog.Debug("subprocess stdout", "data", strings.TrimRight(string(p[:n]), "\n"))
+	}
+	return n, err
 }
