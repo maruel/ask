@@ -84,7 +84,7 @@ def get_file_description(filepath):
     """
     # Glob patterns mapping filenames to their comment prefix. None skips the file.
     comment_prefixes = {
-        "*.css.d.ts": None,
+        "*.d.ts": None,
         "pnpm-lock.yaml": None,
         "*.cjs": "//",
         "*.go": "//",
@@ -124,7 +124,7 @@ def get_file_description(filepath):
             return ""
         if not lines[i].strip():
             continue
-        if "copyright" in lines[i].lower():
+        if " copyright " in lines[i].lower():
             # Skip the entire copyright block (all lines up to the next blank).
             i += 1
             while i < len(lines) and lines[i] and lines[i].strip():
@@ -211,6 +211,9 @@ def generate_index(target, exclude, all_files, all_configs):
         if rel_parts[0] in exclude:
             if filepath not in all_configs:
                 continue
+        # Skip any file in a testdata/ directory.
+        if "testdata" in rel_parts:
+            continue
         desc = get_file_description(filepath)
         if desc is None:
             continue  # file type has no comment convention
