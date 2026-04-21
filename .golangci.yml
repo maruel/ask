@@ -8,26 +8,38 @@ run:
 linters:
   enable:
     - bodyclose
+    - canonicalheader
     - contextcheck
     - copyloopvar
     - dupword
     - durationcheck
+    - errname
     - errorlint
     - exhaustive
+    - fatcontext
+    - forcetypeassert
     - gocritic
     - godot
     - gosec
+    - intrange
+    - mirror
     - misspell
+    - modernize
+    - musttag
+    - nakedret
     - nilerr
     - nilnil
     - nolintlint
     - perfsprint
     - prealloc
+    - recvcheck
     - revive
+    - sloglint
     - unconvert
     - unparam
     - unused
     - usestdlibvars
+    - usetesting
     - whitespace
   settings:
     exhaustive:
@@ -38,6 +50,7 @@ linters:
         - style
         - performance
       disabled-checks:
+        - commentedOutCode
         - exitAfterDefer
         - unnamedResult
     gosec:
