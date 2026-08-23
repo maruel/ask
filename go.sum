@@ -14,8 +14,8 @@ github.com/klauspost/compress v1.19.0 h1:sXLILfc9jV2QYWkzFOPWStmcUVH2RHEB1JCdY2o
 github.com/klauspost/compress v1.19.0/go.mod h1:cwPg85FWrGar70rWktvGQj8/hthj3wpl0PGDogxkrSQ=
 github.com/lmittmann/tint v1.2.0 h1:AogHRHy8HUJUnNJBHJlYa+fR4YY8mko2cnCp67xn9JY=
 github.com/lmittmann/tint v1.2.0/go.mod h1:HIS3gSy7qNwGCj+5oRjAutErFBl4BzdQP6cJZ0NfMwE=
-github.com/maruel/genai v0.7.0 h1:MNOOquedsG43dwWBi4dmQgRm/O1OgADsFE9jRb3bODw=
-github.com/maruel/genai v0.7.0/go.mod h1:2GrP+1i4vMKhKwse9pJ8acNboTyP1KuR94xDMNGYkAw=
+github.com/maruel/genai v0.7.5 h1:QK0EDFFCPDCc/IXTivLHckdhIptuTLcQoUJaxx+coUE=
+github.com/maruel/genai v0.7.5/go.mod h1:OBZSbzwMWM5zM+V/UjUafRwMLqIx0gwWzCW2oSThOX0=
 github.com/maruel/genaitools v0.2.2 h1:xzYgJJnIHx7aJiL4sIbn7HN0GN7M7tlRFqqH4lfZLAk=
 github.com/maruel/genaitools v0.2.2/go.mod h1:tWUs0wmRhYoR7ECawRmt0x+rOv7L0nFU+FNyY9VnNQw=
 github.com/maruel/httpjson v0.5.2 h1:uMAyE9ajEZOpwFmpF6HCvuGOMLQ5D/9vVEMYaRYYXuc=
