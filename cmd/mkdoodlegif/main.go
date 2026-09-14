@@ -108,7 +108,6 @@ func run(ctx context.Context, query, filename string) error {
 			Temperature: 1,
 		},
 		genai.GenOptionSeed(1),
-		&gemini.GenOption{ThinkingBudget: 0},
 	}
 	cImg, err := gemini.New(ctx,
 		genai.ProviderOptionModel("gemini-2.5-flash-image-preview"),

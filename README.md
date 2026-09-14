@@ -283,6 +283,20 @@ ask -f https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Flag_of_Iceland
 ```
 
 
+### OpenAI-compatible endpoint
+
+➡ Use any OpenAI-compatible chat completions endpoint. `-api-key-name` names the environment variable
+holding the key sent as `Authorization: Bearer <key>`.
+
+```bash
+export ASK_PROVIDER=openaicompatible
+export ASK_REMOTE=https://api.runinfra.ai/v1/chat/completions
+export ASK_MODEL=qwen3-8-27b
+export ASK_API_KEY_NAME=RUNINFRA_GATEWAY_KEY
+ask "Why is the sky blue?"
+```
+
+
 ### HTTP session recording and playback
 
 ➡ Save the HTTP record as a YAML file and play it back.

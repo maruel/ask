@@ -129,6 +129,7 @@ func Main() error {
 		_, _ = fmt.Fprintf(w, "  - URLs: ask -f https://example.com/image.jpg \"what is this?\"\n")
 		_, _ = fmt.Fprintf(w, "\nOn macOS, or linux when bubblewrap (bwrap) is installed, tool calling is enabled with a read-only file system.\n")
 		_, _ = fmt.Fprintf(w, "\nEnvironment variables:\n")
+		_, _ = fmt.Fprintf(w, "  ASK_API_KEY_NAME:  default value for -api-key-name\n")
 		_, _ = fmt.Fprintf(w, "  ASK_MODEL:         default value for -model\n")
 		_, _ = fmt.Fprintf(w, "  ASK_PROVIDER:      default value for -provider\n")
 		_, _ = fmt.Fprintf(w, "  ASK_REMOTE:        default value for -remote\n")
@@ -149,6 +150,7 @@ func Main() error {
 	flag.StringVar(provider, "provider", os.Getenv("ASK_PROVIDER"), "backend to use: "+strings.Join(names, ", "))
 	remote := flag.String("r", "", "(alias for -remote)")
 	flag.StringVar(remote, "remote", os.Getenv("ASK_REMOTE"), "URL to use to access the backend, useful for local model")
+	apiKeyName := flag.String("api-key-name", os.Getenv("ASK_API_KEY_NAME"), "name of the environment variable holding the key sent as \"Authorization: Bearer <key>\", useful with openaicompatible")
 
 	// Commands.
 	listModels := flag.Bool("list-models", false, "list available models and exit")
@@ -184,15 +186,25 @@ func Main() error {
 			*record = strings.TrimSuffix(*record, ext)
 		}
 	}
+	apiKey := ""
+	if *apiKeyName != "" {
+		if apiKey = os.Getenv(*apiKeyName); apiKey == "" {
+			return fmt.Errorf("environment variable %s named by -api-key-name is empty", *apiKeyName)
+		}
+	}
 	var rr *recorder.Recorder
 	var errRR error
 	var sr *subprocessrecord.Recorder
 
 	// Load provider.
 	var provOpts []genai.ProviderOption
-	if *verbose || *record != "" {
+	if apiKey != "" || *verbose || *record != "" {
 		// HTTP providers.
 		provOpts = append(provOpts, genai.ProviderOptionTransportWrapper(func(h http.RoundTripper) http.RoundTripper {
+			if apiKey != "" {
+				// Innermost so logs and recordings never see the key.
+				h = &roundtrippers.Header{Header: http.Header{"Authorization": {"Bearer " + apiKey}}, Transport: h}
+			}
 			if *verbose {
 				h = &roundtrippers.Log{Transport: h, Logger: slog.Default()}
 			}
@@ -219,7 +231,7 @@ func Main() error {
 		}
 		if *record != "" {
 			var err error
-			sr, err = subprocessrecord.New(*record)
+			sr, err = subprocessrecord.New(*record, nil)
 			if err != nil {
 				return err
 			}
