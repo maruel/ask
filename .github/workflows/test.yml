@@ -40,6 +40,9 @@ jobs:
       - name: "apt-get install bubblewrap"
         if: matrix.os == 'ubuntu-latest'
         run: |
+          # The runner image ships a stale apt index; refresh it or the package
+          # install fails with 404 on superseded versions.
+          sudo apt-get update
           sudo apt-get install bubblewrap
           # According to https://etbe.coker.com.au/2024/04/24/ubuntu-24-04-bubblewrap/
           echo "abi <abi/4.0>,
