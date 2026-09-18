@@ -364,6 +364,80 @@ This may print:
 > claude-3-opus-20240229: Claude Opus 3 (2024-02-29)
 
 
+## classy
+
+`classy` asks typed questions about one state with
+[TypeSafe System One](https://docs.typesafe.ai/api) and prints one answer per question. TypeSafe does not
+generate text, so it is a separate tool: `ask` streams an answer, `classy` returns numbers you can act on.
+💡 Set [`TYPESAFE_API_KEY`](https://console.typesafe.ai/settings/keys).
+
+Three kinds of questions:
+
+- `-noul <name>=<instructions>`: a yes/no question, answered by the probability that the answer is yes.
+- `-choice <name>=<instructions>|<option>[:<description>]|...`: picks one option.
+- `-score <name>=<instructions>|<level0>|<level1>|...`: rates the state along an ordered rubric.
+
+`<name>` is yours to pick, e.g. `billing` below. It keys the answer in the output and in `-json`; it is
+never sent to the model, only the instructions are.
+
+The name ends at the first `=` and the instructions at the first `|`. Prose has commas, colons and the
+occasional equal sign, and none of them separate anything inside an option or a level:
+
+```bash
+classy -choice 'tone=What is the tone?|calm|angry, openly hostile' -noul 'math=Is 1=1?' ...
+```
+
+A `\` escapes a `|` or the `:` that introduces a description. A `\` before anything else is kept as is,
+e.g. `C:\temp`. Use `-questions` for anything more involved.
+
+```bash
+classy \
+    -noul 'billing=Is this request about billing?' \
+    -choice 'tone=What is the tone of the customer?|calm|frustrated:annoyed but polite|angry:openly hostile' \
+    -score 'urgency=How soon does this need to be handled?|can wait|this week|today|right now' \
+    "I was charged twice for order A-104, please refund the duplicate."
+```
+
+This may print:
+
+> billing: 99% yes
+>
+> tone: calm, 84% confidence
+>
+> &nbsp;&nbsp;angry 0.00 / calm 0.89 / frustrated 0.11
+>
+> urgency: 1.80 of 3, 61% confidence
+>
+> &nbsp;&nbsp;0 can wait 0.01 / 1 this week 0.28 / 2 today 0.62 / 3 right now 0.09
+
+The state is the arguments, the `-f` files and stdin. A part that is a JSON object or array is sent as
+structured data, since the API evaluates a string as text and never parses JSON given as one:
+
+```bash
+jq '{subject, body}' ticket.json | classy -json -noul 'billing=Is this about billing?'
+```
+
+`-json` prints the answers as the JSON the API returned, to pipe into `jq`.
+
+Use `-questions questions.json` for what the flags cannot express, e.g. what the outcomes of a yes/no
+question mean, or a structured description. The file is the JSON the API takes:
+
+```json
+{
+  "billing": {
+    "type": "noul",
+    "instructions": "Is this request about billing?",
+    "criteria": {"true": "the customer asks about a charge", "false": "anything else"}
+  },
+  "tone": {
+    "type": "choice",
+    "instructions": "What is the tone of the customer?",
+    "criteria": {"calm": null, "angry": "openly hostile"}
+  }
+}
+```
+
+
 ## Providers
 
 Supports all providers supported by [github.com/maruel/genai](https://github.com/maruel/genai):

@@ -21,6 +21,13 @@ builds:
     goarch: [amd64, arm64]
     ldflags: [-s, -w]
     env: [CGO_ENABLED=0]
+  - id: classy
+    main: ./cmd/classy
+    binary: classy
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    ldflags: [-s, -w]
+    env: [CGO_ENABLED=0]
   - id: mkdoodlegif
     main: ./cmd/mkdoodlegif
     binary: mkdoodlegif
@@ -36,6 +43,9 @@ universal_binaries:
   - id: batch
     replace: true
     name_template: batch
+  - id: classy
+    replace: true
+    name_template: classy
   - id: mkdoodlegif
     replace: true
     name_template: mkdoodlegif
