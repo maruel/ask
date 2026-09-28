@@ -100,10 +100,8 @@ jobs:
         with:
           go-version-file: go.mod
       - run: go tool golangci-lint run ./...
-      - name: "go install necessary tools (ubuntu)"
+      - run: make verify
         if: always() && matrix.os == 'ubuntu-latest'
-        run: |
-          go install github.com/google/addlicense@latest
       - name: "Check: no executable was committed (ubuntu)"
         if: always() && matrix.os == 'ubuntu-latest'
         run: |
@@ -111,9 +109,6 @@ jobs:
             echo 'Do not commit executables'
             false
           fi
-      - name: "Check: addlicense; all sources have a license header (ubuntu)"
-        if: always() && matrix.os == 'ubuntu-latest'
-        run: addlicense -ignore pyproject.toml -ignore "**/testdata/**" -check .
       - name: "Check: go generate doesn't modify files"
         if: always()
         run: |
@@ -126,9 +121,6 @@ jobs:
             echo "$TOUCHED"
             false
           fi
-      - name: "Check: AGENTS.md file index is up to date (ubuntu)"
-        if: always() && matrix.os == 'ubuntu-latest'
-        run: python3 scripts/update_agents_file_index.py --check
       - name: "Check: go mod tidy doesn't modify files"
         if: always()
         run: |

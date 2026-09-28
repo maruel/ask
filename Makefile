@@ -15,6 +15,7 @@ verify:
 	@go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 	@go vet ./...
 	@go test -run '^$$' ./...
+	@go tool addlicense -ignore pyproject.toml -ignore '**/testdata/**' -check .
 	@python3 scripts/update_agents_file_index.py --check
 
 test:

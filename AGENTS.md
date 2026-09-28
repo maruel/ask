@@ -1,6 +1,7 @@
 # ask
 
-Use `make build`, `make verify`, and `make test` for the Go tools.
+Use `make build`, `make verify`, and `make test` for the Go tools. `make verify`
+includes the pinned license-header check.
 Run `python3 scripts/update_agents_file_index.py` after adding source files.
 
 <!-- BEGIN FILE INDEX -->
