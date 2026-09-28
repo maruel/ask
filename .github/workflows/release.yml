@@ -36,7 +36,7 @@ jobs:
           else
             echo "HAS_APPLE_SECRETS=false" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Determine Version
@@ -77,10 +77,10 @@ jobs:
     needs: version
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - uses: goreleaser/goreleaser-action@v7
@@ -96,10 +96,10 @@ jobs:
     if: needs.version.outputs.has_apple_secrets == 'true'
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.version.outputs.version }}
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Build Universal Binary
@@ -109,7 +109,7 @@ jobs:
           lipo -create -output ${{ env.APP_NAME }} ${{ env.APP_NAME }}-arm64 ${{ env.APP_NAME }}-amd64
           rm ${{ env.APP_NAME }}-arm64 ${{ env.APP_NAME }}-amd64
       - name: Import Code-Signing Certificates
-        uses: Apple-Actions/import-codesign-certs@v6
+        uses: Apple-Actions/import-codesign-certs@v7
         with:
           p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
           p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}

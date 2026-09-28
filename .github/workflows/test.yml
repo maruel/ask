@@ -27,10 +27,10 @@ jobs:
       - name: Turn off git core.autocrlf
         if: matrix.os == 'windows-latest'
         run: git config --global core.autocrlf false
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: "go install necessary tools"
@@ -56,7 +56,7 @@ jobs:
         if: always()
         run: go test -timeout=600s -v -covermode=count -coverprofile coverage.txt -bench=. -benchtime=1x -short ./...
         # Don't send code coverage if anything failed to reduce spam.
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@v7
         with:
           token: ${{secrets.CODECOV_TOKEN}}
       - name: "Cleanup"
@@ -95,11 +95,11 @@ jobs:
       - name: Turn off git core.autocrlf
         if: matrix.os == 'windows-latest'
         run: git config --global core.autocrlf false
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - uses: golangci/golangci-lint-action@v9
+      - run: go tool golangci-lint run ./...
       - name: "go install necessary tools (ubuntu)"
         if: always() && matrix.os == 'ubuntu-latest'
         run: |
@@ -151,8 +151,8 @@ jobs:
     permissions:
       security-events: write
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - uses: github/codeql-action/init@v4
