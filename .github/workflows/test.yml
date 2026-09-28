@@ -128,14 +128,7 @@ jobs:
           fi
       - name: "Check: AGENTS.md file index is up to date (ubuntu)"
         if: always() && matrix.os == 'ubuntu-latest'
-        run: |
-          python3 scripts/update_agents_file_index.py
-          TOUCHED=$(git status --porcelain)
-          if ! test -z "$TOUCHED"; then
-            echo "AGENTS.md is out of date, please run scripts/update_agents_file_index.py:"
-            git diff
-            false
-          fi
+        run: python3 scripts/update_agents_file_index.py --check
       - name: "Check: go mod tidy doesn't modify files"
         if: always()
         run: |

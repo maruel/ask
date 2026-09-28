@@ -3,16 +3,17 @@
 # Use of this source code is governed under the Apache License, Version 2.0
 # that can be found in the LICENSE file.
 
-"""Update AGENTS.md files (containing a file index marker) with an auto-generated index.
+"""AGENTS.md index generation and first-line summary validation.
 
 To opt-in a directory, add these two markers to its AGENTS.md:
 
     <!-- BEGIN FILE INDEX -->
     <!-- END FILE INDEX -->
 
-The script auto-discovers all AGENTS.md files tracked by git that contain the
+The script auto-discovers all non-ignored AGENTS.md files that contain the
 markers, generates a file index from first-line comments, and injects it between
-the markers. It also ensures a CLAUDE.md symlink exists next to every AGENTS.md.
+the markers. Repository-relative glob patterns in .agents-index-ignore exclude
+content that should not require source-file summaries.
 """
 
 import argparse
@@ -22,37 +23,57 @@ import re
 import subprocess
 import sys
 
+SUMMARY_SCAN_LINES = 20
 
-def get_git_files():
+INDEX_SUMMARY_GUIDANCE = f"""\
+Add a one-line index summary (the first meaningful comment line):
+  - Keep it under 120 characters; favor compact keywords over sentences.
+  - Do not wrap it: later lines are ignored.
+  - It must be within the first {SUMMARY_SCAN_LINES} lines.
+  - Do not group it in license notice. Add an empty line to disambiguate.
+  - Omit the filename and generic labels such as "Goal"."""
+
+EXAMPLES = """\
+Index summary examples:
+  CSS:
+    /* task-list panel, filters, task state */
+    body { color: #fff; }
+  Markdown:
+    ---
+    # development setup, build, test workflow
+    title: Development
+    ---
+    # User visible title
+  Python:
+    #!/usr/bin/env python3
+    # Copyright 2026 Example Corp. All rights reserved.
+
+    # trace parsing, bottleneck diagnostics, report output
+    '''Foo bar'''
+  Go:
+    // Copyright 2026 Example Corp. All rights reserved.
+
+    // API response cache, persistent storage, TTL
+
+    // Package cache manages persistent API response caching.
+    package cache"""
+
+HELP_EPILOG = f"{INDEX_SUMMARY_GUIDANCE}\n\n{EXAMPLES}"
+
+
+def get_git_files() -> list[str]:
+    """Return tracked and non-ignored untracked files, or [] on failure."""
     try:
-        result = subprocess.run(["git", "ls-files", "-z"], capture_output=True, text=True, check=True)
-        return [f for f in result.stdout.split("\0") if f]
+        result = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return [f for f in result.stdout.split("\0") if f and (os.path.exists(f) or os.path.islink(f))]
     except (subprocess.CalledProcessError, FileNotFoundError) as e:
         print(f"Error listing git files: {e}", file=sys.stderr)
         return []
-
-
-def _skip_frontmatter(lines):
-    """Return the index of the first line after any YAML front-matter, or 0 if none.
-
-    Handles --- delimited front-matter and bare YAML (no delimiters).
-    """
-    if not lines or not lines[0]:
-        return 0
-    first = lines[0].strip()
-    if first == "---":
-        # Standard delimited front-matter: skip until closing ---.
-        for i, line in enumerate(lines[1:], 1):
-            if not line or line.strip() == "---":
-                return i + 1
-        return len(lines)
-    if re.match(r"^[a-z_]+\s*:", first):
-        # Bare YAML: ends at first blank line.
-        for i, line in enumerate(lines):
-            if not line or not line.strip():
-                return i
-        return len(lines)
-    return 0
 
 
 def _py_docstring(lines, i):
@@ -76,6 +97,23 @@ def _py_docstring(lines, i):
     return ""
 
 
+def _c_style_block_comment(lines: list[str], i: int) -> str:
+    """Extract the first meaningful line from a C-style block comment."""
+    for line_index, line in enumerate(lines[i:]):
+        text = line.strip()
+        if line_index == 0:
+            text = text[2:].strip()
+        end = text.find("*/")
+        if end >= 0:
+            text = text[:end].strip()
+        text = text.lstrip("*").strip()
+        if text:
+            return text
+        if end >= 0:
+            break
+    return ""
+
+
 def get_file_description(filepath):
     """Return the description for a file, or None if not applicable.
 
@@ -83,64 +121,57 @@ def get_file_description(filepath):
     excluded). Returns "" if the file supports comments but has no description,
     which is treated as an error by callers.
     """
-    # Glob patterns mapping filenames to their comment prefix. None skips the file.
-    comment_prefixes = {
+    # Glob patterns mapping filenames to supported comment styles. None skips the file.
+    comment_styles = {
+        "*.min.*": None,
         "*.d.ts": None,
         "pnpm-lock.yaml": None,
-        "*.cjs": "//",
-        "*.go": "//",
-        "*.js": "//",
-        "*.kt": "//",
-        "*.md": "#",
-        "*.mjs": "//",
-        "*.py": "#",
-        "*.sh": "#",
-        "*.swift": "//",
-        "*.ts": "//",
-        "*.tsx": "//",
-        "*.yaml": "#",
-        "*.yml": "#",
-        "Dockerfile*": "#",
-        "Makefile": "#",
+        "*.c": ("//", "/*"),
+        "*.cc": ("//", "/*"),
+        "*.cjs": ("//", "/*"),
+        "*.cpp": ("//", "/*"),
+        "*.css": ("/*",),
+        "*.cxx": ("//", "/*"),
+        "*.go": ("//", "/*"),
+        "*.h": ("//", "/*"),
+        "*.hh": ("//", "/*"),
+        "*.hpp": ("//", "/*"),
+        "*.hxx": ("//", "/*"),
+        "*.js": ("//", "/*"),
+        "*.kt": ("//", "/*"),
+        "*.md": ("#",),
+        "*.mjs": ("//", "/*"),
+        "*.py": ("#",),
+        "*.sh": ("#",),
+        "*.swift": ("//", "/*"),
+        "*.ts": ("//", "/*"),
+        "*.tsx": ("//", "/*"),
+        "*.yaml": ("#",),
+        "*.yml": ("#",),
+        "Dockerfile*": ("#",),
+        "Makefile": ("#",),
     }
     if os.path.islink(filepath):
         return None
     fname = os.path.basename(filepath)
-    match = next(((pat, p) for pat, p in comment_prefixes.items() if fnmatch.fnmatch(fname, pat)), None)
-    if match is None:
-        return None  # extension not recognised
-    _, prefix = match
-    if not prefix:
-        return None  # explicitly excluded pattern
-    with open(filepath, "r", encoding="utf-8") as f:
-        lines = [f.readline() for _ in range(20)]
-    if fname.endswith(".md"):
-        # Skip front-matter; first # heading after it is the description.
-        start_idx = _skip_frontmatter(lines)
-    else:
-        start_idx = 1 if (lines[0] and lines[0].startswith("#!")) else 0
-    # If the first content line is a copyright header, skip lines until a blank.
-    for i in range(start_idx, len(lines)):
-        if not lines[i]:
-            return ""
-        if not lines[i].strip():
-            continue
-        if " copyright " in lines[i].lower():
-            # Skip the entire copyright block (all lines up to the next blank).
-            i += 1
-            while i < len(lines) and lines[i] and lines[i].strip():
-                i += 1
-            start_idx = i
-        break
-    for i in range(start_idx, len(lines)):
-        line = lines[i]
+    styles = next((styles for pat, styles in comment_styles.items() if fnmatch.fnmatch(fname, pat)), None)
+    if not styles:
+        return None  # unrecognised extension or explicitly excluded pattern
+    prefix = styles[0]
+    with open(filepath, encoding="utf-8") as f:
+        lines = [f.readline() for _ in range(SUMMARY_SCAN_LINES)]
+    in_copyright = False
+    for i, line in enumerate(lines):
         if not line:
             break
         sline = line.strip()
         if not sline:
+            in_copyright = False
             continue
         if fname.endswith(".py") and (sline.startswith('"""') or sline.startswith("'''")):
             return _py_docstring(lines, i)
+        if "/*" in styles and sline.startswith("/*"):
+            return _c_style_block_comment(lines, i)
         # Skip common directives/metadata that aren't descriptions.
         if sline.startswith(f"{prefix}go:"):
             continue
@@ -149,6 +180,23 @@ def get_file_description(filepath):
         if sline.startswith(f"{prefix} nolint"):
             continue
         if sline.startswith(f"{prefix} swift-tools-version:"):
+            continue
+        if sline.startswith(f"{prefix} ///"):
+            continue
+        # Skip YAML front-matter delimiters and shebangs.
+        if sline == "---" or sline.startswith("#!"):
+            continue
+        # Skip copyright headers and their continuation lines (until blank).
+        if in_copyright:
+            continue
+        if " copyright " in sline.lower():
+            in_copyright = True
+            continue
+        # Skip PEP 723 inline script metadata fields (requires-python, dependencies, etc.)
+        # that appear between # /// script and # /// markers.
+        if fname.endswith(".py") and (
+            sline.startswith(f"{prefix} requires-") or sline.startswith(f"{prefix} dependencies")
+        ):
             continue
         if sline.startswith(prefix):
             comment = sline[len(prefix) :].strip()
@@ -168,7 +216,7 @@ def discover_configs(all_files):
     candidates = sorted(f for f in all_files if os.path.basename(f) == "AGENTS.md")
     configs = {"AGENTS.md": set()}
     for f in candidates:
-        with open(f, "r", encoding="utf-8") as fh:
+        with open(f, encoding="utf-8") as fh:
             if "<!-- BEGIN FILE INDEX -->" in fh.read():
                 configs[f] = set()
     # For each config, find child workspaces and add them to exclude_dirs.
@@ -179,24 +227,35 @@ def discover_configs(all_files):
             oroot = os.path.dirname(other_target)
             if oroot == root:
                 continue
-            if not prefix:
-                child_rel = oroot
-            elif oroot.startswith(prefix):
+            if prefix:
+                if not oroot.startswith(prefix):
+                    continue
                 child_rel = oroot[len(prefix) :]
             else:
-                continue
-            if "/" not in child_rel:
-                exclude.add(child_rel)
+                child_rel = oroot
+            exclude.add(child_rel)
     return configs
 
 
-def generate_index(target, exclude, all_files, all_configs):
+def get_index_ignores() -> list[str]:
+    """Read repository-relative exclusion patterns for non-source content."""
+    path = ".agents-index-ignore"
+    if not os.path.exists(path):
+        return []
+    with open(path, encoding="utf-8") as f:
+        lines = (line.strip() for line in f)
+        return [line for line in lines if line and not line.startswith("#")]
+
+
+def generate_index(target, exclude, all_files, all_configs, ignored):
     """Generate the file index for target, returning (content, missing) where
     missing is a list of files that support comments but have no description."""
     root_dir = os.path.dirname(target)
     files_found = []
     missing = []
     for filepath in all_files:
+        if any(fnmatch.fnmatch(filepath, pattern) for pattern in ignored):
+            continue
         # Skip own AGENTS.md.
         if filepath == target:
             continue
@@ -209,12 +268,12 @@ def generate_index(target, exclude, all_files, all_configs):
             relpath = filepath
         # Check excluded subdirectories, but let sub-workspace AGENTS.md through.
         rel_parts = relpath.replace("\\", "/").split("/")
-        if rel_parts[0] in exclude:
-            if filepath not in all_configs:
-                continue
-        # Skip any file in a testdata/ directory.
         if "testdata" in rel_parts:
             continue
+        # A file is excluded if its path starts with any excluded prefix.
+        if any(relpath.startswith(ex + "/") or relpath == ex for ex in exclude):
+            if filepath not in all_configs:
+                continue
         desc = get_file_description(filepath)
         if desc is None:
             continue  # file type has no comment convention
@@ -236,7 +295,7 @@ def update_markdown(target_file: str, content: str, check: bool) -> bool:
         return False
     start = "<!-- BEGIN FILE INDEX -->"
     end = "<!-- END FILE INDEX -->"
-    with open(target_file, "r", encoding="utf-8") as f:
+    with open(target_file, encoding="utf-8") as f:
         original = f.read()
     new_section = f"{start}\n{content}\n{end}"
     if start in original and end in original:
@@ -255,36 +314,25 @@ def update_markdown(target_file: str, content: str, check: bool) -> bool:
     with open(target_file, "w", encoding="utf-8") as f:
         f.write(updated)
     print(f"Updated: {target_file}")
-    return True
+    return False
 
 
-def ensure_claude_symlinks(all_files: list[str], check: bool) -> int:
-    """Ensure every AGENTS.md has a sibling CLAUDE.md symlink pointing to it."""
-    ret = 0
-    for f in all_files:
-        if os.path.basename(f) != "AGENTS.md":
-            continue
-        d = os.path.dirname(f) or "."
-        link = os.path.join(d, "CLAUDE.md")
-        if os.path.islink(link) and os.readlink(link) == "AGENTS.md":
-            continue
-        if os.path.exists(link):
-            print(f"Error: {link} exists but is not a symlink to AGENTS.md.", file=sys.stderr)
-            return 1
-        if check:
-            print(
-                f"Error: {link} -> AGENTS.md symlink is missing. Run scripts/update_agents_file_index.py to fix.",
-                file=sys.stderr,
-            )
-            ret = 1
-            continue
-        os.symlink("AGENTS.md", link)
-        print(f"Created: {link} -> AGENTS.md")
-    return ret
+def report_missing_index_summaries(missing: list[str]) -> None:
+    """Print coding-agent guidance for files missing an index summary."""
+    print("Error: the following files are missing an index summary:", file=sys.stderr)
+    for filepath in sorted(missing):
+        print(f"  {filepath}", file=sys.stderr)
+    print(INDEX_SUMMARY_GUIDANCE, file=sys.stderr)
+    print("Run scripts/update_agents_file_index.py --help for examples.", file=sys.stderr)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    """Parse arguments and update (or check) the file indexes."""
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=HELP_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "--check",
         action="store_true",
@@ -296,21 +344,23 @@ def main() -> int:
     if not all_files:
         print("No files found in git repository.")
         return 1
-    ret = ensure_claude_symlinks(all_files, check=args.check)
-    if ret and not args.check:
-        return ret
+    ret = 0
     configs = discover_configs(all_files)
+    ignored = get_index_ignores()
     all_missing = []
+    indexes_out_of_date = False
     for target, exclude in configs.items():
-        content, missing = generate_index(target, exclude, all_files, configs)
+        content, missing = generate_index(target, exclude, all_files, configs, ignored)
         if update_markdown(target, content, check=args.check):
             ret = 1
+            indexes_out_of_date = True
         all_missing.extend(missing)
     if all_missing:
-        print("Error: the following files have no description comment:", file=sys.stderr)
-        for f in sorted(all_missing):
-            print(f"  {f}", file=sys.stderr)
+        report_missing_index_summaries(all_missing)
         ret = 1
+    elif args.check and indexes_out_of_date:
+        print(INDEX_SUMMARY_GUIDANCE, file=sys.stderr)
+        print("Run scripts/update_agents_file_index.py --help for examples.", file=sys.stderr)
     return ret
 
 
