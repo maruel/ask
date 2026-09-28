@@ -113,7 +113,7 @@ jobs:
           fi
       - name: "Check: addlicense; all sources have a license header (ubuntu)"
         if: always() && matrix.os == 'ubuntu-latest'
-        run: addlicense -ignore default_config.yml -ignore "**/testdata/**" -check .
+        run: addlicense -ignore pyproject.toml -ignore "**/testdata/**" -check .
       - name: "Check: go generate doesn't modify files"
         if: always()
         run: |
