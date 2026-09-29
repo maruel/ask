@@ -113,6 +113,7 @@ const (
 	hiblack = "\x1b[90m"
 )
 
+// Main parses the command line and runs the ask command.
 func Main() error {
 	flag.CommandLine.SetOutput(colorable.NewColorableStderr())
 	ctx, stop := internal.Init()

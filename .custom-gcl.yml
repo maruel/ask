@@ -1,0 +1,10 @@
+# Copyright 2026 Marc-Antoine Ruel. All rights reserved.
+# Use of this source code is governed under the Apache License, Version 2.0
+# that can be found in the LICENSE file.
+
+# golangci-lint custom binary build config: methodfilecheck and commentcheck plugins.
+plugins:
+  - module: github.com/maruel/methodfilecheck
+    version: v0.1.1
+  - module: github.com/maruel/commentcheck
+    version: v0.1.0

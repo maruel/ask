@@ -2,5 +2,7 @@
 *.jpg
 *.png
 *.txt
+/.custom-gcl.sha
+/custom-gcl
 /out
 /tmp
