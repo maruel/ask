@@ -27,7 +27,7 @@ import (
 	"github.com/maruel/roundtrippers"
 )
 
-func listProviderGenAsync(ctx context.Context) []string {
+func listProviderGenAsync(ctx context.Context) ([]string, error) {
 	var names []string
 	for name, cfg := range providers.Available(ctx) {
 		c, err := cfg.Factory(ctx)
@@ -37,9 +37,12 @@ func listProviderGenAsync(ctx context.Context) []string {
 		if c.Capabilities().GenAsync {
 			names = append(names, name)
 		}
+		if err := c.Close(); err != nil {
+			return nil, fmt.Errorf("failed to close provider %q: %w", name, err)
+		}
 	}
 	sort.Strings(names)
-	return names
+	return names, nil
 }
 
 func loadProviderGenAsync(ctx context.Context, provider string, opts ...genai.ProviderOption) (genai.Provider, error) {
@@ -52,7 +55,7 @@ func loadProviderGenAsync(ctx context.Context, provider string, opts ...genai.Pr
 		return nil, fmt.Errorf("failed to connect to provider %q: %w", provider, err)
 	}
 	if !c.Capabilities().GenAsync {
-		return nil, fmt.Errorf("provider %q doesn't support async generation", provider)
+		return nil, errors.Join(fmt.Errorf("provider %q doesn't support async generation", provider), c.Close())
 	}
 	return c, nil
 }
@@ -68,11 +71,14 @@ func (s *stringsFlag) String() string {
 	return strings.Join([]string(*s), ", ")
 }
 
-func cmdEnqueue(args []string) error {
+func cmdEnqueue(args []string) (err error) {
 	ctx, stop := internal.Init()
 	defer stop()
 
-	names := listProviderGenAsync(ctx)
+	names, err := listProviderGenAsync(ctx)
+	if err != nil {
+		return err
+	}
 	verbose := flag.Bool("v", false, "verbose")
 	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
 	model := flag.String("model", "", "model to use, defaults to a cheap model")
@@ -97,6 +103,7 @@ func cmdEnqueue(args []string) error {
 	if err != nil {
 		return err
 	}
+	defer func() { err = errors.Join(err, c.Close()) }()
 
 	var msgs genai.Messages
 	if query := strings.Join(flag.Args(), " "); query != "" {
@@ -137,11 +144,14 @@ func cmdEnqueue(args []string) error {
 	return nil
 }
 
-func cmdGet(args []string) error {
+func cmdGet(args []string) (err error) {
 	ctx, stop := internal.Init()
 	defer stop()
 
-	names := listProviderGenAsync(ctx)
+	names, err := listProviderGenAsync(ctx)
+	if err != nil {
+		return err
+	}
 	verbose := flag.Bool("v", false, "verbose")
 	poll := flag.Bool("poll", false, "poll until the results become available")
 	provider := flag.String("provider", "", "backend to use: "+strings.Join(names, ", "))
@@ -170,6 +180,7 @@ func cmdGet(args []string) error {
 	if err != nil {
 		return err
 	}
+	defer func() { err = errors.Join(err, c.Close()) }()
 	if !c.Capabilities().GenAsync {
 		return fmt.Errorf("provider %q doesn't support async generation", *provider)
 	}

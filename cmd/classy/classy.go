@@ -39,7 +39,7 @@ const (
 )
 
 // Main runs the classifier.
-func Main() error {
+func Main() (err error) {
 	flag.CommandLine.SetOutput(colorable.NewColorableStderr())
 	ctx, stop := internal.Init()
 	defer stop()
@@ -129,6 +129,7 @@ func Main() error {
 			}
 		}()
 	}
+	defer func() { err = errors.Join(err, c.Close()) }()
 	slog.Info("loaded", "provider", c.Name(), "model", c.ModelID())
 
 	err = classify(ctx, c, &msg, questions, colorable.NewColorableStdout(), *asJSON, *quiet)

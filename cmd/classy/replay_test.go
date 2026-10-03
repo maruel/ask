@@ -88,5 +88,10 @@ func newClient(t *testing.T) genai.Provider {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	return c
 }

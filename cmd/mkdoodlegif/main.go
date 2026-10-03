@@ -65,11 +65,12 @@ func runAsync(ctx context.Context, c *gemini.Client, msgs genai.Messages, opts .
 	return res.Message, err
 }
 
-func run(ctx context.Context, query, filename string) error {
+func run(ctx context.Context, query, filename string) (err error) {
 	cBase, err := gemini.New(ctx, genai.ProviderOptionModel("gemini-2.5-flash"))
 	if err != nil {
 		return err
 	}
+	defer func() { err = errors.Join(err, cBase.Close()) }()
 	fmt.Printf("Generating prompt...\n")
 	msgs := genai.Messages{genai.NewTextMessage(query)}
 	opts := []genai.GenOption{
@@ -115,6 +116,7 @@ func run(ctx context.Context, query, filename string) error {
 	if err != nil {
 		return err
 	}
+	defer func() { err = errors.Join(err, cImg.Close()) }()
 	msg, err = runAsync(ctx, cImg, msgs, opts...)
 	if err != nil {
 		return err

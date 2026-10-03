@@ -114,7 +114,7 @@ const (
 )
 
 // Main parses the command line and runs the ask command.
-func Main() error {
+func Main() (err error) {
 	flag.CommandLine.SetOutput(colorable.NewColorableStderr())
 	ctx, stop := internal.Init()
 	defer stop()
@@ -278,6 +278,8 @@ func Main() error {
 			}
 		}()
 	}
+
+	defer func() { err = errors.Join(err, c.Close()) }()
 
 	if *listModels {
 		if len(flag.Args()) != 0 {
