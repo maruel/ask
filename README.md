@@ -345,23 +345,35 @@ ask -p anthropic -list-models
 
 This may print:
 
-> claude-opus-4-1-20250805: Claude Opus 4.1 (2025-08-05)
+> claude-opus-5-5: Claude Opus 5.5 (2026-09-21)
 >
-> claude-opus-4-20250514: Claude Opus 4 (2025-05-22)
+> claude-opus-5: Claude Opus 5 (2026-07-24)  [sota]
 >
-> claude-sonnet-4-20250514: Claude Sonnet 4 (2025-05-22)
+> claude-sonnet-5: Claude Sonnet 5 (2026-06-29)  [good]
 >
-> claude-3-7-sonnet-20250219: Claude Sonnet 3.7 (2025-02-24)
+> claude-opus-4-8: Claude Opus 4.8 (2026-05-28)
 >
-> claude-3-5-sonnet-20241022: Claude Sonnet 3.5 (New) (2024-10-22)
->
-> claude-3-5-haiku-20241022: Claude Haiku 3.5 (2024-10-22)
->
-> claude-3-5-sonnet-20240620: Claude Sonnet 3.5 (Old) (2024-06-20)
->
-> claude-3-haiku-20240307: Claude Haiku 3 (2024-03-07)
->
-> claude-3-opus-20240229: Claude Opus 3 (2024-02-29)
+> claude-haiku-4-5-20251001: Claude Haiku 4.5 (2025-10-15)
+
+
+### JSON output
+
+➡ Print the answer as one JSON object instead of streaming text. 💡 Set [`GROQ_API_KEY`](https://console.groq.com/keys).
+
+```bash
+ask -p groq -json "Reply with exactly one word: ok" | jq -r .text
+```
+
+
+### Timeout
+
+➡ Bound the whole request, including the model auto detection and the download of generated media, with a
+Go duration such as `30s` or `5m`. `0`, the default, means no timeout. 💡 Set
+[`GEMINI_API_KEY`](https://aistudio.google.com/apikey).
+
+```bash
+ask -p gemini -timeout 10m "Analyze this video and summarize it"
+```
 
 
 ## classy

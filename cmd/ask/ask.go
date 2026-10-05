@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 	"github.com/maruel/genai/adapters"
 	"github.com/maruel/genai/httprecord"
 	"github.com/maruel/genai/providers"
+	"github.com/maruel/genai/scoreboard"
 	"github.com/maruel/genai/subprocessrecord"
 	"github.com/maruel/genaitools/shelltool"
 	"github.com/maruel/roundtrippers"
@@ -142,7 +144,9 @@ func Main() (err error) {
 	// General.
 	versionFlag := flag.Bool("version", false, "print version and exit")
 	verbose := flag.Bool("v", false, "verbose logs about metadata and usage")
-	quiet := flag.Bool("q", false, "silence the thinking and citations")
+	quiet := flag.Bool("q", false, "silence the thinking and citations of the text output")
+	asJSON := flag.Bool("json", false, "print the result as one JSON object instead of streaming text")
+	timeout := flag.Duration("timeout", 0, "overall timeout, e.g. 30s or 5m; 0 means no timeout")
 	record := flag.String("record", "", "record the HTTP requests in yaml files for inspection in the specified file.")
 
 	// Provider.
@@ -154,7 +158,7 @@ func Main() (err error) {
 	apiKeyName := flag.String("api-key-name", os.Getenv("ASK_API_KEY_NAME"), "name of the environment variable holding the key sent as \"Authorization: Bearer <key>\", useful with openaicompatible")
 
 	// Commands.
-	listModels := flag.Bool("list-models", false, "list available models and exit")
+	listModels := flag.Bool("list-models", false, "list available models and exit; scoreboard recommendations for \"CHEAP\", \"GOOD\" and \"SOTA\" are tagged")
 
 	// Model and modalities.
 	modelHelp := fmt.Sprintf("model ID to use, %q or %q to automatically select worse/better models; defaults to a %q model",
@@ -174,9 +178,20 @@ func Main() (err error) {
 	flag.Var(&files, "f", "file(s) to analyze; it can be a text file, a PDF or an image; can be specified multiple times; can be an URL")
 
 	flag.Parse()
+	// set records the flags set on the command line, so that a default coming from an environment variable
+	// does not make -list-models fail.
+	set := map[string]bool{}
+	flag.Visit(func(f *flag.Flag) {
+		set[f.Name] = true
+	})
 	if *versionFlag {
 		fmt.Println(version())
 		return nil
+	}
+	if *timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, *timeout)
+		defer cancel()
 	}
 	if *verbose {
 		internal.Level.Set(slog.LevelDebug)
@@ -191,6 +206,13 @@ func Main() (err error) {
 	if *apiKeyName != "" {
 		if apiKey = os.Getenv(*apiKeyName); apiKey == "" {
 			return fmt.Errorf("environment variable %s named by -api-key-name is empty", *apiKeyName)
+		}
+	}
+	// Validate the incompatible flags before loading a provider, so that a mistake fails without a network
+	// request.
+	if *listModels {
+		if err := validateListModels(set, flag.Args(), files, *useShell, *useWeb); err != nil {
+			return err
 		}
 	}
 	var rr *recorder.Recorder
@@ -245,10 +267,12 @@ func Main() (err error) {
 			return s
 		}))
 	}
-	if *model != "" {
+	if *model != "" && !*listModels {
+		// Listing models does not select one, so a CHEAP, GOOD or SOTA value must not trigger the model
+		// detection of the provider.
 		provOpts = append(provOpts, genai.ProviderOptionModel(*model))
 	}
-	if *remote != "" && !*listModels {
+	if *remote != "" {
 		provOpts = append(provOpts, genai.ProviderOptionRemote(*remote))
 	}
 	if *mod != "" {
@@ -282,24 +306,15 @@ func Main() (err error) {
 	defer func() { err = errors.Join(err, c.Close()) }()
 
 	if *listModels {
-		if len(flag.Args()) != 0 {
-			return errors.New("cannot use -models with arguments")
-		}
-		if len(files) != 0 {
-			return errors.New("cannot use -models with files")
-		}
-		if *systemPrompt != "" {
-			return errors.New("cannot use -models with system prompt")
-		}
-		if *useShell {
-			return errors.New("cannot use -models with -bash")
-		}
-		if *useWeb {
-			return errors.New("cannot use -models with -web")
-		}
-		err = printModels(ctx, c)
+		err = printProviderModels(ctx, c, colorable.NewColorableStdout())
 	} else {
-		err = sendRequest(ctx, c, flag.Args(), files, *systemPrompt, *useShell, *useWeb, *quiet)
+		err = sendRequest(ctx, c, flag.Args(), files, requestOptions{
+			systemPrompt: *systemPrompt,
+			useShell:     *useShell,
+			useWeb:       *useWeb,
+			quiet:        *quiet,
+			asJSON:       *asJSON,
+		})
 	}
 	if errRR != nil {
 		return errRR
@@ -307,20 +322,132 @@ func Main() (err error) {
 	return err
 }
 
-func printModels(ctx context.Context, c genai.Provider) error {
-	w := colorable.NewColorableStdout()
-	mdls, err := c.ListModels(ctx)
+// validateListModels rejects the flags that make no sense with -list-models.
+//
+// explicit holds the flags set on the command line, so that a value coming from an environment variable,
+// e.g. ASK_SYSTEM_PROMPT, does not make the command fail.
+func validateListModels(explicit map[string]bool, args []string, files stringsFlag, useShell, useWeb bool) error {
+	switch {
+	case len(args) != 0:
+		return errors.New("cannot use -list-models with arguments")
+	case len(files) != 0:
+		return errors.New("cannot use -list-models with files")
+	case explicit["sys"]:
+		return errors.New("cannot use -list-models with -sys")
+	case useShell:
+		return errors.New("cannot use -list-models with -shell")
+	case useWeb:
+		return errors.New("cannot use -list-models with -web")
+	}
+	return nil
+}
+
+// printProviderModels lists the provider's models and prints them.
+func printProviderModels(ctx context.Context, c genai.Provider, w io.Writer) error {
+	models, err := c.ListModels(ctx)
 	if err != nil {
 		return err
 	}
-	for _, m := range mdls {
-		// This is barebone, we'll want a cleaner output. In particular highlight which are CHEAP, GOOD and SOTA.
-		_, _ = fmt.Fprintln(w, m)
-	}
-	return err
+	s := c.Scoreboard()
+	printModels(w, models, &s)
+	return nil
 }
 
-func sendRequest(ctx context.Context, c genai.Provider, args []string, files stringsFlag, systemPrompt string, useShell, useWeb, quiet bool) error {
+// printModels prints one line per model, tagging scoreboard recommendations.
+func printModels(w io.Writer, models []genai.Model, s *scoreboard.Score) {
+	tags := modelTiers(s)
+	for _, m := range models {
+		if t := tags[m.GetID()]; len(t) != 0 {
+			_, _ = fmt.Fprintf(w, "%s  [%s]\n", m, strings.Join(t, ", "))
+		} else {
+			_, _ = fmt.Fprintln(w, m)
+		}
+	}
+}
+
+// modelTiers maps scoreboard recommendations to their tags, e.g. "good" or "sota image".
+//
+// Providers with dynamic model selection may choose a different model from their live model list.
+func modelTiers(s *scoreboard.Score) map[string][]string {
+	out := map[string][]string{}
+	for i := range s.Scenarios {
+		sc := &s.Scenarios[i]
+		var tiers []string
+		if sc.Cheap {
+			tiers = append(tiers, "cheap")
+		}
+		if sc.Good {
+			tiers = append(tiers, "good")
+		}
+		if sc.SOTA {
+			tiers = append(tiers, "sota")
+		}
+		mods := outputModalities(sc)
+		for _, tier := range tiers {
+			if len(mods) != 0 {
+				tier += " " + strings.Join(mods, ",")
+			}
+			for _, m := range sc.Models {
+				if !slices.Contains(out[m], tier) {
+					out[m] = append(out[m], tier)
+				}
+			}
+		}
+	}
+	for _, tiers := range out {
+		slices.Sort(tiers)
+	}
+	return out
+}
+
+// outputModalities returns the non-text output modalities of a scenario, sorted.
+//
+// It returns nil for a text scenario, the common case, so that its tag stays short.
+func outputModalities(sc *scoreboard.Scenario) []string {
+	var mods []string
+	for m := range sc.Out {
+		if m != scoreboard.ModalityText {
+			mods = append(mods, string(m))
+		}
+	}
+	slices.Sort(mods)
+	return mods
+}
+
+// requestOptions controls how a request is sent and how the result is printed.
+type requestOptions struct {
+	// systemPrompt is the system prompt to use.
+	systemPrompt string
+	// useShell enables the shell tool, useTools reports whether its sandbox was found.
+	useShell bool
+	useTools bool
+	// useWeb enables the web search tool.
+	useWeb bool
+	// quiet silences the reasoning and the citations of the text output.
+	quiet bool
+	// asJSON prints one JSON object at the end instead of streaming text.
+	asJSON bool
+}
+
+// hasStdinData reports whether stdin holds data to send with the request.
+//
+// stdin is skipped when it is a terminal, a character device such as /dev/null, or an empty regular
+// file, so that a script or CI run that redirects stdin does not send an empty request.
+func hasStdinData(f *os.File) bool {
+	if term.IsTerminal(int(f.Fd())) {
+		return false
+	}
+	st, err := f.Stat()
+	if err != nil {
+		return true
+	}
+	if st.Mode()&os.ModeCharDevice != 0 {
+		return false
+	}
+	return !st.Mode().IsRegular() || st.Size() != 0
+}
+
+func sendRequest(ctx context.Context, c genai.Provider, args []string, files stringsFlag, opts requestOptions) error {
 	// Process inputs
 	msgs := make(genai.Messages, 0, 1)
 	userMsg := genai.Message{}
@@ -345,111 +472,49 @@ func sendRequest(ctx context.Context, c genai.Provider, args []string, files str
 		closers = append(closers, f)
 		userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{Src: f}})
 	}
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
+	if hasStdinData(os.Stdin) {
 		userMsg.Requests = append(userMsg.Requests, genai.Request{Doc: genai.Doc{Src: os.Stdin}})
 	}
 	if len(userMsg.Requests) == 0 {
 		return errors.New("provide a prompt as an argument or input files")
 	}
 	msgs = append(msgs, userMsg)
-	var opts []genai.GenOption
-	if systemPrompt != "" {
-		opts = append(opts, &genai.GenOptionText{SystemPrompt: systemPrompt})
+	var genOpts []genai.GenOption
+	if opts.systemPrompt != "" {
+		genOpts = append(genOpts, &genai.GenOptionText{SystemPrompt: opts.systemPrompt})
 	}
-
-	useTools := false
-	if useShell {
+	if opts.useShell {
 		if o, err := shelltool.New(false); o != nil {
-			useTools = true
-			opts = append(opts, o)
+			opts.useTools = true
+			genOpts = append(genOpts, o)
 		} else {
 			fmt.Fprintf(os.Stderr, "warning: could not find sandbox: %v\n", err)
 		}
 	}
-	if useWeb {
-		opts = append(opts, &genai.GenOptionWeb{Search: true})
+	if opts.useWeb {
+		genOpts = append(genOpts, &genai.GenOptionWeb{Search: true})
 	}
-	return execRequest(ctx, c, msgs, opts, useTools, quiet)
+	return execRequest(ctx, c, msgs, genOpts, opts)
 }
 
-func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opts []genai.GenOption, useTools, quiet bool) error {
+func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, genOpts []genai.GenOption, opts requestOptions) error {
 	w := colorable.NewColorableStdout()
 	// Send request.
 	var fragments iter.Seq[genai.Reply]
 	var finishTools func() (genai.Messages, genai.Usage, error)
 	var finishStream func() (genai.Result, error)
-	if useTools {
-		fragments, finishTools = adapters.GenStreamWithToolCallLoop(ctx, c, msgs, opts...)
+	if opts.useTools {
+		fragments, finishTools = adapters.GenStreamWithToolCallLoop(ctx, c, msgs, genOpts...)
 	} else {
-		fragments, finishStream = c.GenStream(ctx, msgs, opts...)
+		fragments, finishStream = c.GenStream(ctx, msgs, genOpts...)
 	}
-	mode := "text"
-	last := ""
 	// TODO: Another better form would be to keep track of the citations and print them at the bottom. That's
 	// what most web uis do. Please send a PR to do that.
+	out := newOutput(w, opts.quiet, opts.asJSON)
 	for f := range fragments {
-		if f.Text != "" {
-			if mode != "text" {
-				mode = "text"
-				if !strings.HasSuffix(last, "\n\n") {
-					if !strings.HasSuffix(last, "\n") {
-						_, _ = io.WriteString(w, "\n")
-					}
-					_, _ = io.WriteString(w, "\n")
-				}
-				_, _ = io.WriteString(w, hiblack+"Answer: "+reset)
-			}
-			_, _ = io.WriteString(w, f.Text)
-			last = f.Text
-			continue
-		}
-		if quiet {
-			continue
-		}
-		if f.Reasoning != "" {
-			if mode != "thinking" {
-				mode = "thinking"
-				if last != "" && !strings.HasSuffix(last, "\n\n") {
-					if !strings.HasSuffix(last, "\n") {
-						_, _ = io.WriteString(w, "\n")
-					}
-					_, _ = io.WriteString(w, "\n")
-				}
-				_, _ = io.WriteString(w, hiblack+"Reasoning: "+reset)
-			}
-			_, _ = io.WriteString(w, f.Reasoning)
-			last = f.Reasoning
-			continue
-		}
-		if !f.Citation.IsZero() {
-			if mode != "citation" {
-				mode = "citation"
-				if last != "" && !strings.HasSuffix(last, "\n\n") {
-					if !strings.HasSuffix(last, "\n") {
-						_, _ = io.WriteString(w, "\n")
-					}
-					_, _ = io.WriteString(w, "\n")
-				}
-				_, _ = io.WriteString(w, hiblack+"Citation:\n"+reset)
-			}
-			for j := range f.Citation.Sources {
-				src := &f.Citation.Sources[j]
-				switch src.Type {
-				case genai.CitationWeb:
-					_, _ = fmt.Fprintf(w, "  - %s / %s\n", src.Title, src.URL)
-				case genai.CitationWebImage:
-					_, _ = fmt.Fprintf(w, "  - Image: %s\n", src.URL)
-				case genai.CitationWebQuery, genai.CitationDocument, genai.CitationTool:
-				default:
-				}
-			}
-			last = "\n"
-			continue
-		}
+		out.add(&f)
 	}
-	if !strings.HasSuffix(last, "\n") {
-		_, _ = io.WriteString(w, "\n")
-	}
+	out.finish()
 
 	var err error
 	msg := genai.Message{}
@@ -472,35 +537,225 @@ func execRequest(ctx context.Context, c genai.Provider, msgs genai.Messages, opt
 			continue
 		}
 		n := findAvailable(r.Doc.GetFilename())
-		_, _ = fmt.Fprintf(w, "- Writing %s\n", n)
 
 		// The image can be returned as an URL or inline, depending on the provider. Always save it since it won't
 		// be available for long.
-		b, err2 := downloadDoc(c, r)
+		b, err2 := downloadDoc(ctx, c, r)
 		if err2 != nil {
-			return err2
+			err = errors.Join(err, err2)
+			break
 		}
 		if err2 := os.WriteFile(n, b, 0o644); err2 != nil {
-			return err2
+			err = errors.Join(err, err2)
+			break
 		}
+		out.addFile(n)
 	}
 	slog.Info("done", "usage", usage)
+	if opts.asJSON {
+		// The JSON carries the error, but a failed request must still exit non-zero.
+		err = errors.Join(err, out.writeJSON(c.Name(), c.ModelID(), &usage, err))
+	}
 	return err
 }
 
-func downloadDoc(c genai.Provider, r *genai.Reply) ([]byte, error) {
-	if r.Doc.URL != "" {
-		resp, err := c.HTTPClient().Get(r.Doc.URL)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { _ = resp.Body.Close() }()
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("got status code %d while retrieving %s", resp.StatusCode, r.Doc.URL)
-		}
-		return io.ReadAll(resp.Body)
+func downloadDoc(ctx context.Context, c genai.Provider, r *genai.Reply) ([]byte, error) {
+	if r.Doc.URL == "" {
+		return io.ReadAll(r.Doc.Src)
 	}
-	return io.ReadAll(r.Doc.Src)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, r.Doc.URL, http.NoBody)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.HTTPClient().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("got status code %d while retrieving %s", resp.StatusCode, r.Doc.URL)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+// output renders the replies of a request and accumulates them for -json.
+type output struct {
+	w      io.Writer
+	quiet  bool
+	asJSON bool
+	// Text rendering state.
+	mode string
+	last string
+	// Collected content.
+	text      strings.Builder
+	reasoning strings.Builder
+	citations []jsonCitation
+	seen      map[string]bool
+	written   []string
+}
+
+// newOutput returns an output printing to w.
+func newOutput(w io.Writer, quiet, asJSON bool) *output {
+	return &output{w: w, quiet: quiet, asJSON: asJSON, mode: "text"}
+}
+
+// add renders a reply, or only accumulates it when printing JSON.
+func (o *output) add(f *genai.Reply) {
+	if o.asJSON {
+		o.text.WriteString(f.Text)
+		o.reasoning.WriteString(f.Reasoning)
+		for i := range f.Citation.Sources {
+			o.addCitation(&f.Citation.Sources[i])
+		}
+		return
+	}
+	switch {
+	case f.Text != "":
+		o.section("text", hiblack+"Answer: "+reset)
+		_, _ = io.WriteString(o.w, f.Text)
+		o.last = f.Text
+	case o.quiet:
+		// The reasoning and the citations are silenced.
+	case f.Reasoning != "":
+		o.section("thinking", hiblack+"Reasoning: "+reset)
+		_, _ = io.WriteString(o.w, f.Reasoning)
+		o.last = f.Reasoning
+	case !f.Citation.IsZero():
+		o.section("citation", hiblack+"Citation:\n"+reset)
+		for j := range f.Citation.Sources {
+			src := &f.Citation.Sources[j]
+			switch src.Type {
+			case genai.CitationWeb:
+				_, _ = fmt.Fprintf(o.w, "  - %s / %s\n", src.Title, src.URL)
+			case genai.CitationWebImage:
+				_, _ = fmt.Fprintf(o.w, "  - Image: %s\n", src.URL)
+			case genai.CitationWebQuery, genai.CitationDocument, genai.CitationTool:
+			default:
+			}
+		}
+		o.last = "\n"
+	}
+}
+
+// section switches the text output to a new section, printing blank lines and a label.
+func (o *output) section(mode, label string) {
+	if o.mode == mode {
+		return
+	}
+	o.mode = mode
+	if o.last != "" && !strings.HasSuffix(o.last, "\n\n") {
+		if !strings.HasSuffix(o.last, "\n") {
+			_, _ = io.WriteString(o.w, "\n")
+		}
+		_, _ = io.WriteString(o.w, "\n")
+	}
+	_, _ = io.WriteString(o.w, label)
+}
+
+// addCitation records a source, skipping a duplicate.
+func (o *output) addCitation(src *genai.CitationSource) {
+	key := citationTypeName(src.Type) + "\x00" + src.Title + "\x00" + src.URL
+	if o.seen == nil {
+		o.seen = map[string]bool{}
+	}
+	if o.seen[key] {
+		return
+	}
+	o.seen[key] = true
+	o.citations = append(o.citations, jsonCitation{Type: citationTypeName(src.Type), Title: src.Title, URL: src.URL})
+}
+
+// addFile records a written file and prints it in the text output.
+func (o *output) addFile(name string) {
+	if o.asJSON {
+		o.written = append(o.written, name)
+	} else {
+		_, _ = fmt.Fprintf(o.w, "- Writing %s\n", name)
+	}
+}
+
+// finish terminates the text output.
+func (o *output) finish() {
+	if o.asJSON || strings.HasSuffix(o.last, "\n") {
+		return
+	}
+	_, _ = io.WriteString(o.w, "\n")
+}
+
+// writeJSON prints the accumulated result as one JSON object.
+func (o *output) writeJSON(provider, model string, usage *genai.Usage, err error) error {
+	r := jsonResult{
+		Provider:  provider,
+		Model:     model,
+		Text:      o.text.String(),
+		Reasoning: o.reasoning.String(),
+		Citations: o.citations,
+		Usage: jsonUsage{
+			InputTokens:       usage.InputTokens,
+			InputCachedTokens: usage.InputCachedTokens,
+			ReasoningTokens:   usage.ReasoningTokens,
+			OutputTokens:      usage.OutputTokens,
+			TotalTokens:       usage.TotalTokens,
+			FinishReason:      string(usage.FinishReason),
+		},
+		Files: o.written,
+	}
+	if err != nil {
+		r.Error = err.Error()
+	}
+	b, err2 := json.Marshal(r)
+	if err2 != nil {
+		return err2
+	}
+	_, err2 = fmt.Fprintf(o.w, "%s\n", b)
+	return err2
+}
+
+// jsonResult is the object printed by -json.
+type jsonResult struct {
+	Provider  string         `json:"provider"`
+	Model     string         `json:"model"`
+	Text      string         `json:"text"`
+	Reasoning string         `json:"reasoning,omitempty"`
+	Citations []jsonCitation `json:"citations,omitempty"`
+	Usage     jsonUsage      `json:"usage"`
+	Files     []string       `json:"files,omitempty"`
+	Error     string         `json:"error,omitempty"`
+}
+
+// jsonCitation is a source that supports the answer.
+type jsonCitation struct {
+	Type  string `json:"type"`
+	Title string `json:"title,omitempty"`
+	URL   string `json:"url,omitempty"`
+}
+
+// jsonUsage is the token usage of the request.
+type jsonUsage struct {
+	InputTokens       int64  `json:"input_tokens"`
+	InputCachedTokens int64  `json:"input_cached_tokens,omitempty"`
+	ReasoningTokens   int64  `json:"reasoning_tokens,omitempty"`
+	OutputTokens      int64  `json:"output_tokens"`
+	TotalTokens       int64  `json:"total_tokens"`
+	FinishReason      string `json:"finish_reason,omitempty"`
+}
+
+// citationTypeName returns the name of a citation type for the JSON output.
+func citationTypeName(t genai.CitationType) string {
+	switch t {
+	case genai.CitationWebQuery:
+		return "web_query"
+	case genai.CitationWeb:
+		return "web"
+	case genai.CitationWebImage:
+		return "web_image"
+	case genai.CitationDocument:
+		return "document"
+	case genai.CitationTool:
+		return "tool"
+	default:
+		return "unknown"
+	}
 }
 
 // findAvailable checks if a file with the given name exists, and if so, append an index number.
