@@ -10,9 +10,11 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
-	"github.com/maruel/genai/providers/typesafe"
+	"github.com/maruel/genai"
 )
 
 func TestLoadState(t *testing.T) {
@@ -43,6 +45,161 @@ func TestLoadState(t *testing.T) {
 	})
 }
 
+func TestKnownSystemOneProviders(t *testing.T) {
+	known := knownSystemOneProviders(t.Context())
+	want := []string{"cloudflare", "llamacpp", "ollama", "typesafe"}
+	if !slices.Equal(known, want) {
+		t.Fatalf("got %v, want %v", known, want)
+	}
+}
+
+func TestLoadProvider(t *testing.T) {
+	ctx := t.Context()
+	t.Run("unknown provider", func(t *testing.T) {
+		_, err := loadProvider(ctx, "nonexistent", "", nil)
+		if err == nil || !strings.Contains(err.Error(), "unknown provider \"nonexistent\"") {
+			t.Fatalf("got error %v, want unknown provider error", err)
+		}
+	})
+	t.Run("unsupported provider", func(t *testing.T) {
+		_, err := loadProvider(ctx, "openai", "", nil)
+		if err == nil || !strings.Contains(err.Error(), "doesn't support System One") {
+			t.Fatalf("got error %v, want unsupported System One error", err)
+		}
+	})
+	t.Run("valid provider without key", func(t *testing.T) {
+		t.Setenv("CLOUDFLARE_API_KEY", "")
+		t.Setenv("CLOUDFLARE_ACCOUNT_ID", "")
+		_, err := loadProvider(ctx, "cloudflare", "", nil)
+		if err == nil || !strings.Contains(err.Error(), "failed to connect to provider \"cloudflare\"") {
+			t.Fatalf("got error %v, want connection error", err)
+		}
+	})
+}
+
+func TestIsImageFile(t *testing.T) {
+	tests := []struct {
+		filename string
+		want     bool
+	}{
+		{"photo.png", true},
+		{"photo.PNG", true},
+		{"photo.jpg", true},
+		{"photo.jpeg", true},
+		{"photo.webp", true},
+		{"photo.gif", true},
+		{"doc.txt", false},
+		{"state.json", false},
+		{"binary.bin", false},
+		{"", false},
+	}
+	for _, tc := range tests {
+		if got := isImageFile(tc.filename); got != tc.want {
+			t.Errorf("isImageFile(%q) = %t, want %t", tc.filename, got, tc.want)
+		}
+	}
+}
+
+func TestStateFromMessage(t *testing.T) {
+	t.Run("text only", func(t *testing.T) {
+		msg := &genai.Message{
+			Requests: []genai.Request{{Text: "hello world"}},
+		}
+		state, docs, err := stateFromMessage(msg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(docs) != 0 {
+			t.Fatalf("got %d docs, want 0", len(docs))
+		}
+		if got, ok := state.(genai.Text); !ok || string(got) != "hello world" {
+			t.Fatalf("got %v, want 'hello world'", state)
+		}
+	})
+
+	t.Run("json doc", func(t *testing.T) {
+		msg := &genai.Message{
+			Requests: []genai.Request{
+				{Doc: genai.Doc{Filename: "state.json", Src: bytes.NewReader([]byte(`{"key":"value"}`))}},
+			},
+		}
+		state, docs, err := stateFromMessage(msg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(docs) != 0 {
+			t.Fatalf("got %d docs, want 0", len(docs))
+		}
+		obj, ok := state.(genai.Object)
+		if !ok || len(obj) != 1 {
+			t.Fatalf("got %T: %v, want Object", state, state)
+		}
+	})
+
+	t.Run("image doc", func(t *testing.T) {
+		msg := &genai.Message{
+			Requests: []genai.Request{
+				{Doc: genai.Doc{Filename: "image.png", Src: bytes.NewReader([]byte("fake png"))}},
+			},
+		}
+		state, docs, err := stateFromMessage(msg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(docs) != 1 {
+			t.Fatalf("got %d docs, want 1", len(docs))
+		}
+		if docs[0].Filename != "image.png" {
+			t.Fatalf("got doc filename %q, want image.png", docs[0].Filename)
+		}
+		if text, ok := state.(genai.Text); !ok || string(text) != "" {
+			t.Fatalf("got %v, want empty text state", state)
+		}
+	})
+
+	t.Run("mixed text and image", func(t *testing.T) {
+		msg := &genai.Message{
+			Requests: []genai.Request{
+				{Text: "describe this"},
+				{Doc: genai.Doc{Filename: "diagram.jpg", Src: bytes.NewReader([]byte("fake jpg"))}},
+			},
+		}
+		state, docs, err := stateFromMessage(msg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(docs) != 1 {
+			t.Fatalf("got %d docs, want 1", len(docs))
+		}
+		if text, ok := state.(genai.Text); !ok || string(text) != "describe this" {
+			t.Fatalf("got %v, want 'describe this'", state)
+		}
+	})
+
+	t.Run("conversation rejected", func(t *testing.T) {
+		msg := &genai.Message{
+			Requests: []genai.Request{{Text: "prompt"}},
+			Replies:  []genai.Reply{{Text: "response"}},
+		}
+		_, _, err := stateFromMessage(msg)
+		if err == nil {
+			t.Fatal("expected error for conversation replies")
+		}
+	})
+
+	t.Run("invalid doc type", func(t *testing.T) {
+		msg := &genai.Message{
+			Requests: []genai.Request{
+				{Doc: genai.Doc{Filename: "data.txt", Src: bytes.NewReader([]byte("plain text"))}},
+			},
+		}
+		_, _, err := stateFromMessage(msg)
+		if err == nil {
+			t.Fatal("expected error for non-json non-image doc")
+		}
+	})
+}
+
 func TestRequestFromState(t *testing.T) {
 	data := []struct {
 		name  string
@@ -54,6 +211,11 @@ func TestRequestFromState(t *testing.T) {
 		{name: "array", state: "[1, 2]", doc: true},
 		{name: "truncated object", state: "{\"a\": 1"},
 		{name: "number", state: "1"},
+		{name: "image.png", state: "dummy", doc: true},
+		{name: "image.jpg", state: "dummy", doc: true},
+		{name: "image.webp", state: "dummy", doc: true},
+		{name: "image.gif", state: "dummy", doc: true},
+		{name: "stdin", state: "\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR", doc: true},
 	}
 	for _, line := range data {
 		t.Run(line.name, func(t *testing.T) {
@@ -66,15 +228,15 @@ func TestRequestFromState(t *testing.T) {
 }
 
 func TestPrintAnswers(t *testing.T) {
-	answers := typesafe.Answers{
-		"billing": {Type: typesafe.QuestionNoul, Noul: 0.99},
+	answers := genai.Answers{
+		"billing": {Type: genai.QuestionNoul, Noul: 0.99},
 		"tone": {
-			Type: typesafe.QuestionChoice, Choice: "calm", Confidence: 0.84,
+			Type: genai.QuestionChoice, Choice: "calm", Confidence: 0.84,
 			Probabilities: map[string]float64{"angry": 0, "calm": 0.89, "frustrated": 0.11},
 		},
 		"urgency": {
-			Type: typesafe.QuestionScore, Score: 1.8, Confidence: 0.61,
-			Legend:        typesafe.ScoreLegend{"0": typesafe.Text("can wait"), "1": typesafe.Text("today")},
+			Type: genai.QuestionScore, Score: 1.8, Confidence: 0.61,
+			Legend:        genai.ScoreLegend{"0": genai.Text("can wait"), "1": genai.Text("today")},
 			Probabilities: map[string]float64{"0": 0.2, "1": 0.8},
 		},
 		"mystery": {Type: "quantum"},

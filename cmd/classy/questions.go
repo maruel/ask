@@ -14,15 +14,15 @@ import (
 	"os"
 	"strings"
 
-	"github.com/maruel/genai/providers/typesafe"
+	"github.com/maruel/genai"
 )
 
 // questionsFromFile decodes the questions declared in a JSON file.
 //
-// The format is the one typesafe.Questions marshals to, i.e. an object keyed by question name, each value
+// The format is the one genai.Questions marshals to, i.e. an object keyed by question name, each value
 // being {"type", "instructions", "criteria"}. It is the only way to describe the outcomes of a noul
 // question and the options of a choice question with more than one line.
-func questionsFromFile(name string) (typesafe.Questions, error) {
+func questionsFromFile(name string) (genai.Questions, error) {
 	raw, err := os.ReadFile(name)
 	if err != nil {
 		return nil, err
@@ -33,7 +33,7 @@ func questionsFromFile(name string) (typesafe.Questions, error) {
 	if err = d.Decode(&file); err != nil {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
-	out := make(typesafe.Questions, len(file))
+	out := make(genai.Questions, len(file))
 	for n, q := range file {
 		if out[n], err = q.toQuestion(); err != nil {
 			return nil, fmt.Errorf("%s: question %q: %w", name, n, err)
@@ -43,57 +43,57 @@ func questionsFromFile(name string) (typesafe.Questions, error) {
 }
 
 // parseNoul parses a -noul flag value, "<name>=<instructions>".
-func parseNoul(value string) (string, typesafe.Question, error) {
+func parseNoul(value string) (string, *genai.Question, error) {
 	parts := splitEscaped(value, '=', 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", typesafe.Question{}, errors.New("expected \"<name>=<instructions>\"")
+		return "", nil, errors.New("expected \"<name>=<instructions>\"")
 	}
-	q := typesafe.Question{Type: typesafe.QuestionNoul, Instructions: typesafe.Text(unescape(parts[1]))}
+	q := &genai.Question{Type: genai.QuestionNoul, Instructions: genai.Text(unescape(parts[1]))}
 	return unescape(parts[0]), q, nil
 }
 
 // parseChoice parses a -choice flag value, "<name>=<instructions>|<option>[:<description>]|...".
-func parseChoice(value string) (string, typesafe.Question, error) {
+func parseChoice(value string) (string, *genai.Question, error) {
 	n, instructions, rest, err := cutQuestion(value, "<option>[:<description>]|...")
 	if err != nil {
-		return "", typesafe.Question{}, err
+		return "", nil, err
 	}
-	criteria := map[string]typesafe.Content{}
+	criteria := map[string]genai.DecisionContent{}
 	for _, o := range splitEscaped(rest, '|', -1) {
 		option := splitEscaped(o, ':', 2)
 		label := strings.TrimSpace(unescape(option[0]))
 		if label == "" {
-			return "", typesafe.Question{}, errors.New("an option is empty")
+			return "", nil, errors.New("an option is empty")
 		}
 		if _, dup := criteria[label]; dup {
-			return "", typesafe.Question{}, fmt.Errorf("option %q is specified twice", label)
+			return "", nil, fmt.Errorf("option %q is specified twice", label)
 		}
 		if len(option) == 2 {
-			criteria[label] = typesafe.Text(unescape(option[1]))
+			criteria[label] = genai.Text(unescape(option[1]))
 		} else {
 			criteria[label] = nil
 		}
 	}
-	q := typesafe.Question{Type: typesafe.QuestionChoice, Instructions: typesafe.Text(instructions), Choice: criteria}
+	q := &genai.Question{Type: genai.QuestionChoice, Instructions: genai.Text(instructions), Choice: criteria}
 	return n, q, nil
 }
 
 // parseScore parses a -score flag value, "<name>=<instructions>|<level0>|<level1>|...".
-func parseScore(value string) (string, typesafe.Question, error) {
+func parseScore(value string) (string, *genai.Question, error) {
 	n, instructions, rest, err := cutQuestion(value, "<level0>|<level1>|...")
 	if err != nil {
-		return "", typesafe.Question{}, err
+		return "", nil, err
 	}
 	levels := splitEscaped(rest, '|', -1)
-	criteria := make([]typesafe.Content, len(levels))
+	criteria := make([]genai.DecisionContent, len(levels))
 	for i, l := range levels {
 		l = strings.TrimSpace(unescape(l))
 		if l == "" {
-			return "", typesafe.Question{}, fmt.Errorf("level %d is empty", i)
+			return "", nil, fmt.Errorf("level %d is empty", i)
 		}
-		criteria[i] = typesafe.Text(l)
+		criteria[i] = genai.Text(l)
 	}
-	q := typesafe.Question{Type: typesafe.QuestionScore, Instructions: typesafe.Text(instructions), Score: criteria}
+	q := &genai.Question{Type: genai.QuestionScore, Instructions: genai.Text(instructions), Score: criteria}
 	return n, q, nil
 }
 
@@ -167,57 +167,36 @@ func unescape(s string) string {
 
 // contentFromJSON decodes the API's string, object or array content union.
 //
-// It returns a nil Content for a JSON null, which is a criteria left undescribed.
+// It returns a nil DecisionContent for a JSON null, which is a criteria left undescribed.
 //
-//nolint:nilnil // a nil Content is a criteria left undescribed, not a missing value.
-func contentFromJSON(b json.RawMessage) (typesafe.Content, error) {
+//nolint:nilnil // a nil DecisionContent is a criteria left undescribed, not a missing value.
+func contentFromJSON(b json.RawMessage) (genai.DecisionContent, error) {
 	b = bytes.TrimSpace(b)
 	if len(b) == 0 || bytes.Equal(b, []byte("null")) {
 		return nil, nil
 	}
-	switch b[0] {
-	case '"':
-		var t string
-		if err := json.Unmarshal(b, &t); err != nil {
-			return nil, err
-		}
-		return typesafe.Text(t), nil
-	case '{':
-		o := typesafe.Object{}
-		if err := json.Unmarshal(b, &o); err != nil {
-			return nil, err
-		}
-		return o, nil
-	case '[':
-		a := typesafe.Array{}
-		if err := json.Unmarshal(b, &a); err != nil {
-			return nil, err
-		}
-		return a, nil
-	default:
-		return nil, fmt.Errorf("expected a string, a JSON object or a JSON array, got %s", b)
-	}
+	return genai.ParseDecisionContent(b)
 }
 
 // questionJSON is a question as declared in a -questions file.
 //
 // Criteria is whichever of the noul, choice and score criteria Type selects, exactly like the JSON
-// typesafe.Question marshals to.
+// genai.Question marshals to.
 type questionJSON struct {
-	Type         typesafe.QuestionType `json:"type"`
-	Instructions json.RawMessage       `json:"instructions,omitzero"`
-	Criteria     json.RawMessage       `json:"criteria,omitzero"`
+	Type         genai.QuestionType `json:"type"`
+	Instructions json.RawMessage    `json:"instructions,omitzero"`
+	Criteria     json.RawMessage    `json:"criteria,omitzero"`
 }
 
 // toQuestion converts the declaration to the question to ask.
-func (q *questionJSON) toQuestion() (typesafe.Question, error) {
-	out := typesafe.Question{Type: q.Type}
+func (q *questionJSON) toQuestion() (*genai.Question, error) {
+	out := &genai.Question{Type: q.Type}
 	var err error
 	if out.Instructions, err = contentFromJSON(q.Instructions); err != nil {
-		return out, fmt.Errorf("field instructions: %w", err)
+		return nil, fmt.Errorf("field instructions: %w", err)
 	}
 	switch q.Type {
-	case typesafe.QuestionNoul:
+	case genai.QuestionNoul:
 		if len(q.Criteria) == 0 {
 			// The outcomes of a noul question are optional.
 			return out, nil
@@ -227,46 +206,46 @@ func (q *questionJSON) toQuestion() (typesafe.Question, error) {
 			False json.RawMessage `json:"false,omitzero"`
 		}
 		if err = json.Unmarshal(q.Criteria, &c); err != nil {
-			return out, fmt.Errorf("field criteria: %w", err)
+			return nil, fmt.Errorf("field criteria: %w", err)
 		}
-		out.Noul = &typesafe.NoulCriteria{}
+		out.Noul = &genai.NoulCriteria{}
 		if out.Noul.True, err = contentFromJSON(c.True); err != nil {
-			return out, fmt.Errorf("field criteria.true: %w", err)
+			return nil, fmt.Errorf("field criteria.true: %w", err)
 		}
 		if out.Noul.False, err = contentFromJSON(c.False); err != nil {
-			return out, fmt.Errorf("field criteria.false: %w", err)
+			return nil, fmt.Errorf("field criteria.false: %w", err)
 		}
-	case typesafe.QuestionChoice:
+	case genai.QuestionChoice:
 		if len(q.Criteria) == 0 {
-			return out, errors.New("field criteria: at least one option is required")
+			return nil, errors.New("field criteria: at least one option is required")
 		}
 		options := map[string]json.RawMessage{}
 		if err = json.Unmarshal(q.Criteria, &options); err != nil {
-			return out, fmt.Errorf("field criteria: %w", err)
+			return nil, fmt.Errorf("field criteria: %w", err)
 		}
-		out.Choice = make(map[string]typesafe.Content, len(options))
+		out.Choice = make(map[string]genai.DecisionContent, len(options))
 		for label, raw := range options {
 			if out.Choice[label], err = contentFromJSON(raw); err != nil {
-				return out, fmt.Errorf("field criteria[%q]: %w", label, err)
+				return nil, fmt.Errorf("field criteria[%q]: %w", label, err)
 			}
 		}
-	case typesafe.QuestionScore:
+	case genai.QuestionScore:
 		if len(q.Criteria) == 0 {
-			return out, errors.New("field criteria: at least one level is required")
+			return nil, errors.New("field criteria: at least one level is required")
 		}
 		var levels []json.RawMessage
 		if err = json.Unmarshal(q.Criteria, &levels); err != nil {
-			return out, fmt.Errorf("field criteria: %w", err)
+			return nil, fmt.Errorf("field criteria: %w", err)
 		}
-		out.Score = make([]typesafe.Content, len(levels))
+		out.Score = make([]genai.DecisionContent, len(levels))
 		for i, raw := range levels {
 			if out.Score[i], err = contentFromJSON(raw); err != nil {
-				return out, fmt.Errorf("field criteria[%d]: %w", i, err)
+				return nil, fmt.Errorf("field criteria[%d]: %w", i, err)
 			}
 		}
 	default:
-		return out, fmt.Errorf("field type: must be %q, %q or %q, got %q",
-			typesafe.QuestionNoul, typesafe.QuestionChoice, typesafe.QuestionScore, q.Type)
+		return nil, fmt.Errorf("field type: must be %q, %q or %q, got %q",
+			genai.QuestionNoul, genai.QuestionChoice, genai.QuestionScore, q.Type)
 	}
 	return out, nil
 }

@@ -366,10 +366,19 @@ This may print:
 
 ## classy
 
-`classy` asks typed questions about one state with
-[TypeSafe System One](https://docs.typesafe.ai/api) and prints one answer per question. TypeSafe does not
-generate text, so it is a separate tool: `ask` streams an answer, `classy` returns numbers you can act on.
-💡 Set [`TYPESAFE_API_KEY`](https://console.typesafe.ai/settings/keys).
+`classy` asks typed questions about one state with System One decision models and prints one answer per
+question. Decision models evaluate probabilities and ratings rather than generating text: `ask` streams an
+answer, `classy` returns numbers you can act on.
+
+Supported decision backends:
+- **TypeSafe** (`typesafe`): 💡 Set [`TYPESAFE_API_KEY`](https://console.typesafe.ai/settings/keys).
+- **Cloudflare Workers AI** (`cloudflare`): 💡 Set [`CLOUDFLARE_API_KEY`](https://dash.cloudflare.com/profile/api-tokens) and `CLOUDFLARE_ACCOUNT_ID`.
+- **Ollama** (`ollama`): Runs locally via Ollama (`ollama serve`).
+- **llama.cpp** (`llamacpp`): Runs locally via `llama-server`.
+
+Select a provider with `-p` / `-provider` or `CLASSY_PROVIDER`. If omitted, `classy` automatically detects
+available decision providers. Specify a model with `-m` / `-model` or `CLASSY_MODEL`. Use `-r` / `-remote`
+or `CLASSY_REMOTE` to specify a remote backend endpoint for local servers.
 
 Three kinds of questions:
 
@@ -411,7 +420,8 @@ This may print:
 > &nbsp;&nbsp;0 can wait 0.01 / 1 this week 0.28 / 2 today 0.62 / 3 right now 0.09
 
 The state is the arguments, the `-f` files and stdin. A part that is a JSON object or array is sent as
-structured data, since the API evaluates a string as text and never parses JSON given as one:
+structured data, image files (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`) are sent as attachments (supported
+by Cloudflare, Ollama, and llama.cpp), and anything else is sent as text:
 
 ```bash
 jq '{subject, body}' ticket.json | classy -json -noul 'billing=Is this about billing?'

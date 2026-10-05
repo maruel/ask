@@ -4,7 +4,7 @@ go 1.27.0
 
 require (
 	github.com/lmittmann/tint v1.2.0
-	github.com/maruel/genai v0.9.0
+	github.com/maruel/genai v0.10.0
 	github.com/maruel/genaitools v0.2.3
 	github.com/maruel/roundtrippers v0.5.1
 	github.com/mattn/go-colorable v0.1.15
@@ -223,6 +223,7 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect
+	golang.org/x/image v0.43.0 // indirect
 	golang.org/x/mod v0.41.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
