@@ -427,7 +427,26 @@ by Cloudflare, Ollama, and llama.cpp), and anything else is sent as text:
 jq '{subject, body}' ticket.json | classy -json -noul 'billing=Is this about billing?'
 ```
 
-`-json` prints the answers as the JSON the API returned, to pipe into `jq`.
+`-json` (alias for `-format json`) prints the answers as the JSON the API returned, to pipe into `jq`.
+`-format jsonl` prints one stable object per answer and `-format tsv` prints `name`, `type`, `value` and
+`confidence` columns for `awk` and `cut`. `-q` drops the probabilities from the `text` and `jsonl`
+formats; JSONL retains score legends.
+
+`-require '<name><op><value>'` turns an answer into an exit code, with `<op>` one of `>=`, `>`, `<=`, `<`
+or `=`, so a script can branch without `jq`. A probability and a score compare as numbers, a choice
+compares its label. JSON-quote names containing operators, e.g. `-require '"a=b"=calm'`; quoted
+names use JSON string escapes and preserve whitespace. Choice labels can also be JSON-quoted,
+e.g. `-require 'tone=" calm "'`, to match their exact whitespace. Numeric thresholds must be finite.
+`-min-confidence` additionally requires every choice and score answer to be at least
+that confident, from 0 to 1. When a requirement is not met, `classy` prints the answers, reports each
+unmet requirement on stderr and exits with code 3, distinct from the code 1 used when `classy` fails to
+run:
+
+```bash
+classy -noul 'billing=Is this request about billing?' -require 'billing>=0.9' "..."
+classy -choice 'tone=What is the tone?|calm|angry' -require 'tone=angry' "..."
+classy -score 'urgency=How soon?|can wait|today|right now' -require 'urgency>=2' -min-confidence 0.6 "..."
+```
 
 Use `-questions questions.json` for what the flags cannot express, e.g. what the outcomes of a yes/no
 question mean, or a structured description. The file is the JSON the API takes:

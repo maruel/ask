@@ -13,10 +13,16 @@ import (
 )
 
 func main() {
-	if err := Main(); err != nil {
-		if !errors.Is(err, context.Canceled) {
-			fmt.Fprintf(os.Stderr, "%s: %s\n", os.Args[0], err)
-		}
-		os.Exit(1)
+	err := Main()
+	if err == nil {
+		return
 	}
+	code := 1
+	if ee, ok := errors.AsType[*exitError](err); ok {
+		code = ee.code
+	}
+	if !errors.Is(err, context.Canceled) {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", os.Args[0], err)
+	}
+	os.Exit(code)
 }

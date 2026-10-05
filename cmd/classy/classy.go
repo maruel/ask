@@ -16,6 +16,7 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"math"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -67,18 +68,34 @@ func Main() (err error) {
 		_, _ = fmt.Fprintf(w, "  -questions questions.json declares the same with full criteria:\n")
 		_, _ = fmt.Fprintf(w, "    {\"tone\": {\"type\": \"choice\", \"instructions\": \"What is the tone?\",\n")
 		_, _ = fmt.Fprintf(w, "              \"criteria\": {\"calm\": null, \"angry\": \"openly hostile\"}}}\n")
+		_, _ = fmt.Fprintf(w, "\nOutput:\n")
+		_, _ = fmt.Fprintf(w, "  -format %s\n", strings.Join(formats, ", "))
+		_, _ = fmt.Fprintf(w, "  text: one line per answer; json: the JSON the API returned; jsonl: one\n")
+		_, _ = fmt.Fprintf(w, "  object per answer; tsv: name, type, value and confidence columns.\n")
+		_, _ = fmt.Fprintf(w, "  -json is an alias for -format json. -q drops the probabilities from text and\n")
+		_, _ = fmt.Fprintf(w, "  jsonl.\n")
+		_, _ = fmt.Fprintf(w, "\nRequirements:\n")
+		_, _ = fmt.Fprintf(w, "  -require 'billing>=0.9'  -require 'tone=frustrated'  -require 'urgency>=2'\n")
+		_, _ = fmt.Fprintf(w, "  JSON-quote names containing operators: -require '\"a=b\"=calm'.\n")
+		_, _ = fmt.Fprintf(w, "  JSON-quote labels to preserve whitespace: -require 'tone=\" calm \"'.\n")
+		_, _ = fmt.Fprintf(w, "  A noul probability and a score compare as numbers with >=, >, <=, < or =,\n")
+		_, _ = fmt.Fprintf(w, "  a choice compares its label with =. -min-confidence requires every choice\n")
+		_, _ = fmt.Fprintf(w, "  and score answer to be at least that confident, from 0 to 1.\n")
+		_, _ = fmt.Fprintf(w, "  An unmet requirement prints the answers, reports each unmet requirement on\n")
+		_, _ = fmt.Fprintf(w, "  stderr and exits with code %d.\n", exitRequirementsNotMet)
 		_, _ = fmt.Fprintf(w, "\nEnvironment variables:\n")
 		_, _ = fmt.Fprintf(w, "  CLASSY_PROVIDER:       default value for -provider\n")
 		_, _ = fmt.Fprintf(w, "  CLASSY_MODEL:          default value for -model\n")
 		_, _ = fmt.Fprintf(w, "  CLASSY_REMOTE:         default value for -remote\n")
 		_, _ = fmt.Fprintf(w, "  CLOUDFLARE_API_KEY:    API key, from https://dash.cloudflare.com/profile/api-tokens\n")
 		_, _ = fmt.Fprintf(w, "  CLOUDFLARE_ACCOUNT_ID: account ID for Cloudflare Workers AI\n")
-		_, _ = fmt.Fprintf(w, "  TYPESAFE_API_KEY:      API key, from https://console.typesafe.ai/settings/keys\n")
+		_, _ = fmt.Fprintf(w, "  TYPESAFE_API_KEY:      API key, from https://console.genai.ai/settings/keys\n")
 	}
 	known := knownSystemOneProviders(ctx)
 	verbose := flag.Bool("v", false, "verbose logs about metadata and usage")
-	asJSON := flag.Bool("json", false, "print the answers as the JSON the API returned")
-	quiet := flag.Bool("q", false, "print only the answers, not the probability of each option or level")
+	asJSON := flag.Bool("json", false, "alias for -format json")
+	format := flag.String("format", formatText, "output format: "+strings.Join(formats, ", "))
+	quiet := flag.Bool("q", false, "print only the answers, not the probability of each option or level; affects text and jsonl")
 	record := flag.String("record", "", "record the HTTP requests in yaml files for inspection in the specified file")
 	provider := flag.String("p", "", "(alias for -provider)")
 	flag.StringVar(provider, "provider", os.Getenv("CLASSY_PROVIDER"), "backend to use: "+strings.Join(known, ", "))
@@ -87,10 +104,12 @@ func Main() (err error) {
 	remote := flag.String("r", "", "(alias for -remote)")
 	flag.StringVar(remote, "remote", os.Getenv("CLASSY_REMOTE"), "URL to use to access the backend, useful for local model")
 	questionsFile := flag.String("questions", "", "JSON file declaring the questions to ask")
-	var nouls, choices, scores, files stringsFlag
+	minConfidence := flag.Float64("min-confidence", 0, "fail unless every choice and score answer is at least this confident, from 0 to 1")
+	var nouls, choices, scores, files, require stringsFlag
 	flag.Var(&nouls, "noul", "yes/no question, \"<name>=<instructions>\"; can be specified multiple times")
 	flag.Var(&choices, "choice", "question picking one option, \"<name>=<instructions>|<option>[:<description>]|...\"; can be specified multiple times")
 	flag.Var(&scores, "score", "question rating the state, \"<name>=<instructions>|<level0>|<level1>|...\"; can be specified multiple times")
+	flag.Var(&require, "require", "predicate the answers must satisfy to exit 0, \"<name><op><value>\" with op >=, >, <=, < or =; can be specified multiple times")
 	flag.Var(&files, "f", "file(s) holding the state; a .json file is sent as structured data; images (.png, .jpg, .webp, .gif) are sent as attachments; can be specified multiple times")
 	flag.Parse()
 	if *verbose {
@@ -99,9 +118,35 @@ func Main() (err error) {
 	if *record != "" {
 		*record = strings.TrimSuffix(*record, ".yaml")
 	}
+	// -json is the original spelling, -format is the general one. They may not disagree.
+	formatSet := false
+	flag.Visit(func(f *flag.Flag) {
+		if f.Name == "format" {
+			formatSet = true
+		}
+	})
+	if *asJSON {
+		if formatSet && *format != formatJSON {
+			return fmt.Errorf("-json conflicts with -format %q", *format)
+		}
+		*format = formatJSON
+	}
+	if err := validateFormat(*format); err != nil {
+		return err
+	}
+	if !(*minConfidence >= 0 && *minConfidence <= 1) {
+		return fmt.Errorf("-min-confidence must be between 0 and 1, got %v", *minConfidence)
+	}
+	requirements, err := parseRequirements(require)
+	if err != nil {
+		return err
+	}
 
 	questions, err := loadQuestions(*questionsFile, nouls, choices, scores)
 	if err != nil {
+		return err
+	}
+	if err := validateRequirements(requirements, questions); err != nil {
 		return err
 	}
 	msg, err := loadState(flag.Args(), files)
@@ -139,14 +184,31 @@ func Main() (err error) {
 			}
 		}()
 	}
-	defer func() { err = errors.Join(err, c.Close()) }()
+	defer func() { err = closeProvider(c, err) }()
 	slog.Info("loaded", "provider", c.Name(), "model", c.ModelID())
 
-	err = classify(ctx, c, &msg, questions, colorable.NewColorableStdout(), *asJSON, *quiet)
+	err = classify(ctx, c, &msg, questions, colorable.NewColorableStdout(), classifyOptions{
+		format:        *format,
+		quiet:         *quiet,
+		requirements:  requirements,
+		minConfidence: *minConfidence,
+	})
 	if errRR != nil {
 		return errRR
 	}
 	return err
+}
+
+// closeProvider releases the provider, giving cleanup failures precedence over unmet requirements.
+func closeProvider(c genai.Provider, err error) error {
+	closeErr := c.Close()
+	if closeErr == nil {
+		return err
+	}
+	if ee, ok := errors.AsType[*exitError](err); ok {
+		err = ee.err
+	}
+	return errors.Join(err, closeErr)
 }
 
 // knownSystemOneProviders returns the sorted list of provider names that support System One inference.
@@ -243,8 +305,232 @@ func loadProvider(ctx context.Context, provider, model string, popts []genai.Pro
 	return c, nil
 }
 
+// exitRequirementsNotMet is the exit code used when -require or -min-confidence is not satisfied.
+//
+// It is distinct from the exit code 1 used when classy fails to run, so a caller can tell an answer
+// that did not match from a broken configuration or a failed request.
+const exitRequirementsNotMet = 3
+
+// exitError asks main to exit with a specific code.
+type exitError struct {
+	code int
+	err  error
+}
+
+// Error implements error.
+func (e *exitError) Error() string {
+	return e.err.Error()
+}
+
+// Unwrap returns the error the exit code is reported for.
+func (e *exitError) Unwrap() error {
+	return e.err
+}
+
+// requirement is one -require predicate checked against the answers.
+type requirement struct {
+	// raw is the flag value, used to report a parse error.
+	raw string
+	// name is the question the predicate applies to.
+	name string
+	// op is the comparison, one of >=, >, <=, < or =.
+	op string
+	// value is the right hand side, a number for a noul or score question, a label for a choice.
+	value string
+}
+
+// requirementOps lists the operators, longest first so that ">=" is not read as ">".
+var requirementOps = []string{">=", "<=", ">", "<", "="}
+
+// parseRequirements parses the -require flag values, "<name><op><value>".
+func parseRequirements(values stringsFlag) ([]requirement, error) {
+	out := make([]requirement, 0, len(values))
+	for _, v := range values {
+		name, op, value, ok := cutRequirement(v)
+		if !ok {
+			return nil, fmt.Errorf("-require %q: expected \"<name><op><value>\" with op >=, >, <=, < or =", v)
+		}
+		if strings.HasPrefix(value, `"`) {
+			var label string
+			if err := json.Unmarshal([]byte(value), &label); err != nil {
+				return nil, fmt.Errorf("-require %q: invalid quoted value: %w", v, err)
+			}
+			value = label
+		}
+		out = append(out, requirement{raw: v, name: name, op: op, value: value})
+	}
+	return out, nil
+}
+
+// cutRequirement cuts a -require flag value around its first operator.
+//
+// An unquoted name ends at the first operator. JSON-quoted names can contain operators and preserve
+// whitespace. The value runs to the end, so a choice label can hold an equal sign. It returns false
+// when either side is empty or a quoted name is malformed.
+func cutRequirement(s string) (string, string, string, bool) {
+	s = strings.TrimSpace(s)
+	if strings.HasPrefix(s, `"`) {
+		var name string
+		d := json.NewDecoder(strings.NewReader(s))
+		if err := d.Decode(&name); err != nil || name == "" {
+			return "", "", "", false
+		}
+		rest := strings.TrimSpace(s[d.InputOffset():])
+		for _, op := range requirementOps {
+			if value, ok := strings.CutPrefix(rest, op); ok {
+				value = strings.TrimSpace(value)
+				return name, op, value, value != ""
+			}
+		}
+		return "", "", "", false
+	}
+	best, bestOp := -1, ""
+	for _, op := range requirementOps {
+		i := strings.Index(s, op)
+		if i < 0 {
+			continue
+		}
+		if best < 0 || i < best || (i == best && len(op) > len(bestOp)) {
+			best, bestOp = i, op
+		}
+	}
+	if best <= 0 {
+		return "", "", "", false
+	}
+	name := strings.TrimSpace(s[:best])
+	value := strings.TrimSpace(s[best+len(bestOp):])
+	if name == "" || value == "" {
+		return "", "", "", false
+	}
+	return name, bestOp, value, true
+}
+
+// validateRequirements ensures every requirement names a declared question and fits its type.
+//
+// It reports a configuration error, so classy exits before asking anything. An operator that does not
+// fit the question type is caught here rather than reported as an answer that did not match.
+func validateRequirements(reqs []requirement, questions genai.Questions) error {
+	for _, r := range reqs {
+		q, ok := questions[r.name]
+		if !ok {
+			return fmt.Errorf("-require %q: no question named %q", r.raw, r.name)
+		}
+		switch q.Type {
+		case genai.QuestionNoul, genai.QuestionScore:
+			if value, err := strconv.ParseFloat(r.value, 64); err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+				return fmt.Errorf("-require %q: a %s answer compares a finite number, got %q", r.raw, q.Type, r.value)
+			}
+		case genai.QuestionChoice:
+			if r.op != "=" {
+				return fmt.Errorf("-require %q: a choice answer only supports \"=\"", r.raw)
+			}
+		default:
+			return fmt.Errorf("-require %q: unknown question type %q", r.raw, q.Type)
+		}
+	}
+	return nil
+}
+
+// unmetRequirements returns one message per requirement the answers do not satisfy.
+//
+// minConfidence is skipped when it is 0. A noul answer has no confidence, it is the probability that the
+// answer is yes, so only choice and score answers are checked against it.
+func unmetRequirements(reqs []requirement, answers genai.Answers, minConfidence float64) []string {
+	var unmet []string
+	for _, r := range reqs {
+		a, ok := answers[r.name]
+		if !ok {
+			unmet = append(unmet, r.name+": no answer")
+			continue
+		}
+		switch a.Type {
+		case genai.QuestionNoul:
+			want, _ := strconv.ParseFloat(r.value, 64)
+			if !compareFloat(a.Noul, r.op, want) {
+				unmet = append(unmet, fmt.Sprintf("%s: %.0f%% yes, want %s %s", r.name, 100*a.Noul, r.op, r.value))
+			}
+		case genai.QuestionScore:
+			want, _ := strconv.ParseFloat(r.value, 64)
+			if !compareFloat(a.Score, r.op, want) {
+				unmet = append(unmet, fmt.Sprintf("%s: %.2f, want %s %s", r.name, a.Score, r.op, r.value))
+			}
+		case genai.QuestionChoice:
+			if a.Choice != r.value {
+				unmet = append(unmet, fmt.Sprintf("%s: %s, want %s", r.name, a.Choice, r.value))
+			}
+		default:
+			unmet = append(unmet, fmt.Sprintf("%s: unknown answer type %q", r.name, a.Type))
+		}
+	}
+	if minConfidence > 0 {
+		for _, n := range slices.Sorted(maps.Keys(answers)) {
+			a := answers[n]
+			if a.Type != genai.QuestionChoice && a.Type != genai.QuestionScore {
+				continue
+			}
+			if a.Confidence < minConfidence {
+				unmet = append(unmet, fmt.Sprintf("%s: %.0f%% confidence, want at least %.0f%%", n, 100*a.Confidence, 100*minConfidence))
+			}
+		}
+	}
+	return unmet
+}
+
+// compareFloat compares got to want with the operator of a requirement.
+func compareFloat(got float64, op string, want float64) bool {
+	switch op {
+	case ">=":
+		return got >= want
+	case ">":
+		return got > want
+	case "<=":
+		return got <= want
+	case "<":
+		return got < want
+	case "=":
+		return got == want
+	default:
+		return false
+	}
+}
+
+// Output formats, as accepted by -format.
+const (
+	// formatText prints one line per answer, with the probability of each option and level unless quiet.
+	formatText = "text"
+	// formatJSON prints the JSON the API returned.
+	formatJSON = "json"
+	// formatJSONL prints one stable JSON object per answer, one per line.
+	formatJSONL = "jsonl"
+	// formatTSV prints one tab separated row per answer.
+	formatTSV = "tsv"
+)
+
+// formats lists the -format values, in the order they are documented.
+var formats = []string{formatText, formatJSON, formatJSONL, formatTSV}
+
+// validateFormat ensures the -format value is one classy can print.
+func validateFormat(format string) error {
+	if slices.Contains(formats, format) {
+		return nil
+	}
+	return fmt.Errorf("-format must be one of %s, got %q", strings.Join(formats, ", "), format)
+}
+
+// classifyOptions controls how classify runs and reports.
+type classifyOptions struct {
+	// format selects how the answers are printed, one of the formats values.
+	format string
+	// quiet drops the probability of each option and level from the text and jsonl formats.
+	quiet bool
+	// requirements are the predicates the answers must satisfy to exit 0.
+	requirements []requirement
+	// minConfidence fails unless every choice and score answer is at least this confident, 0 to 1.
+	minConfidence float64
+}
+
 // classify asks the questions about the state and prints one answer per question.
-func classify(ctx context.Context, c genai.Provider, msg *genai.Message, questions genai.Questions, w io.Writer, asJSON, quiet bool) error {
+func classify(ctx context.Context, c genai.Provider, msg *genai.Message, questions genai.Questions, w io.Writer, opts classifyOptions) error {
 	state, docs, err := stateFromMessage(msg)
 	if err != nil {
 		return err
@@ -254,15 +540,42 @@ func classify(ctx context.Context, c genai.Provider, msg *genai.Message, questio
 		return err
 	}
 	slog.Info("done", "usage", res.Usage)
-	if asJSON {
-		b, err := json.Marshal(res.Answers)
+	answers := res.Answers
+	switch opts.format {
+	case formatJSON:
+		b, err := json.Marshal(answers)
 		if err != nil {
 			return err
 		}
-		_, err = fmt.Fprintf(w, "%s\n", b)
+		if _, err := fmt.Fprintf(w, "%s\n", b); err != nil {
+			return err
+		}
+	case formatJSONL:
+		if err := printAnswersJSONL(w, answers, opts.quiet); err != nil {
+			return err
+		}
+	case formatTSV:
+		if err := printAnswersTSV(w, answers); err != nil {
+			return err
+		}
+	default:
+		if err := printAnswers(w, answers, opts.quiet); err != nil {
+			return err
+		}
+	}
+	if err := requirementsExitError(opts.requirements, answers, opts.minConfidence); err != nil {
 		return err
 	}
-	return printAnswers(w, res.Answers, quiet)
+	return nil
+}
+
+// requirementsExitError returns the error that makes classy exit with exitRequirementsNotMet, or nil.
+func requirementsExitError(reqs []requirement, answers genai.Answers, minConfidence float64) error {
+	unmet := unmetRequirements(reqs, answers, minConfidence)
+	if len(unmet) == 0 {
+		return nil
+	}
+	return &exitError{code: exitRequirementsNotMet, err: errors.New(strings.Join(unmet, "\n"))}
 }
 
 // stateFromMessage converts a Message into DecisionContent state and document attachments.
@@ -445,15 +758,23 @@ func printAnswers(w io.Writer, answers genai.Answers, quiet bool) error {
 		a := answers[n]
 		switch a.Type {
 		case genai.QuestionNoul:
-			_, _ = fmt.Fprintf(w, "%s%s%s: %.0f%% yes\n", hiblack, n, reset, 100*a.Noul)
+			if _, err := fmt.Fprintf(w, "%s%s%s: %.0f%% yes\n", hiblack, n, reset, 100*a.Noul); err != nil {
+				return err
+			}
 			continue
 		case genai.QuestionChoice:
-			_, _ = fmt.Fprintf(w, "%s%s%s: %s, %.0f%% confidence\n", hiblack, n, reset, a.Choice, 100*a.Confidence)
+			if _, err := fmt.Fprintf(w, "%s%s%s: %s, %.0f%% confidence\n", hiblack, n, reset, a.Choice, 100*a.Confidence); err != nil {
+				return err
+			}
 		case genai.QuestionScore:
-			_, _ = fmt.Fprintf(w, "%s%s%s: %.2f of %d, %.0f%% confidence\n", hiblack, n, reset, a.Score, len(a.Probabilities)-1, 100*a.Confidence)
+			if _, err := fmt.Fprintf(w, "%s%s%s: %.2f of %d, %.0f%% confidence\n", hiblack, n, reset, a.Score, len(a.Probabilities)-1, 100*a.Confidence); err != nil {
+				return err
+			}
 		default:
 			// An answer type added by the API after this tool was written.
-			_, _ = fmt.Fprintf(w, "%s%s%s: unknown answer type %q\n", hiblack, n, reset, a.Type)
+			if _, err := fmt.Fprintf(w, "%s%s%s: unknown answer type %q\n", hiblack, n, reset, a.Type); err != nil {
+				return err
+			}
 			continue
 		}
 		if quiet {
@@ -462,9 +783,13 @@ func printAnswers(w io.Writer, answers genai.Answers, quiet bool) error {
 		t := tabwriter.NewWriter(w, 0, 4, 1, ' ', 0)
 		for _, k := range sortedKeys(a.Probabilities, a.Type == genai.QuestionScore) {
 			if legend := a.Legend[k]; legend != nil {
-				_, _ = fmt.Fprintf(t, "  %s\t%v\t%.2f\n", k, legend, a.Probabilities[k])
+				if _, err := fmt.Fprintf(t, "  %s\t%v\t%.2f\n", k, legend, a.Probabilities[k]); err != nil {
+					return err
+				}
 			} else {
-				_, _ = fmt.Fprintf(t, "  %s\t%.2f\n", k, a.Probabilities[k])
+				if _, err := fmt.Fprintf(t, "  %s\t%.2f\n", k, a.Probabilities[k]); err != nil {
+					return err
+				}
 			}
 		}
 		if err := t.Flush(); err != nil {
@@ -472,6 +797,112 @@ func printAnswers(w io.Writer, answers genai.Answers, quiet bool) error {
 		}
 	}
 	return nil
+}
+
+// printAnswersJSONL prints one stable JSON object per answer, one per line.
+//
+// The fields are name, type and value, plus confidence and probabilities for a choice and a score, and
+// legend for a score. quiet drops probabilities and legend. It differs from -format json, which prints
+// the JSON the API returned.
+func printAnswersJSONL(w io.Writer, answers genai.Answers, quiet bool) error {
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	for _, n := range slices.Sorted(maps.Keys(answers)) {
+		a := answers[n]
+		var v any
+		switch a.Type {
+		case genai.QuestionNoul:
+			v = jsonlNoul{Name: n, Type: a.Type, Value: a.Noul}
+		case genai.QuestionChoice:
+			o := jsonlChoice{Name: n, Type: a.Type, Value: a.Choice, Confidence: a.Confidence}
+			if !quiet {
+				o.Probabilities = a.Probabilities
+			}
+			v = o
+		case genai.QuestionScore:
+			o := jsonlScore{Name: n, Type: a.Type, Value: a.Score, Confidence: a.Confidence, Legend: a.Legend}
+			if !quiet {
+				o.Probabilities = a.Probabilities
+			}
+			v = o
+		default:
+			v = jsonlUnknown{Name: n, Type: a.Type}
+		}
+		if err := enc.Encode(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// jsonlNoul is a noul answer in the JSONL format, the value being the probability that the answer is yes.
+type jsonlNoul struct {
+	Name  string             `json:"name"`
+	Type  genai.QuestionType `json:"type"`
+	Value float64            `json:"value"`
+}
+
+// jsonlChoice is a choice answer in the JSONL format.
+type jsonlChoice struct {
+	Name          string             `json:"name"`
+	Type          genai.QuestionType `json:"type"`
+	Value         string             `json:"value"`
+	Confidence    float64            `json:"confidence"`
+	Probabilities map[string]float64 `json:"probabilities,omitempty"`
+}
+
+// jsonlScore is a score answer in the JSONL format.
+type jsonlScore struct {
+	Name          string             `json:"name"`
+	Type          genai.QuestionType `json:"type"`
+	Value         float64            `json:"value"`
+	Confidence    float64            `json:"confidence"`
+	Legend        genai.ScoreLegend  `json:"legend,omitempty"`
+	Probabilities map[string]float64 `json:"probabilities,omitempty"`
+}
+
+// jsonlUnknown is an answer type the API added after this tool was written.
+type jsonlUnknown struct {
+	Name string             `json:"name"`
+	Type genai.QuestionType `json:"type"`
+}
+
+// printAnswersTSV prints one tab separated row per answer, for awk and cut.
+//
+// The columns are name, type, value and confidence, the last one empty for a noul or an unknown answer.
+// Use -format jsonl for the probabilities and the score legend.
+func printAnswersTSV(w io.Writer, answers genai.Answers) error {
+	for _, n := range slices.Sorted(maps.Keys(answers)) {
+		a := answers[n]
+		var value, confidence string
+		switch a.Type {
+		case genai.QuestionNoul:
+			value = formatNumber(a.Noul)
+		case genai.QuestionChoice:
+			value, confidence = a.Choice, formatNumber(a.Confidence)
+		case genai.QuestionScore:
+			value, confidence = formatNumber(a.Score), formatNumber(a.Confidence)
+		default:
+			// An answer type added by the API after this tool was written has no value.
+		}
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", tsvField(n), tsvField(string(a.Type)), tsvField(value), confidence); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// formatNumber formats a probability or a score for a machine readable column.
+func formatNumber(v float64) string {
+	return strconv.FormatFloat(v, 'g', -1, 64)
+}
+
+// tsvField escapes the tab and the newline of a TSV field so that a value keeps one row.
+func tsvField(s string) string {
+	if !strings.ContainsAny(s, "\\\t\n\r") {
+		return s
+	}
+	return strings.NewReplacer("\\", "\\\\", "\t", "\\t", "\n", "\\n", "\r", "\\r").Replace(s)
 }
 
 // sortedKeys returns the keys of the probabilities, as numbers when they are the levels of a score.
