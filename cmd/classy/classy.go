@@ -337,10 +337,9 @@ type requirement struct {
 	op string
 	// value is the right hand side, a number for a noul or score question, a label for a choice.
 	value string
+	// number is the finite threshold parsed during validation for a noul or score question.
+	number float64
 }
-
-// requirementOps lists the operators, longest first so that ">=" is not read as ">".
-var requirementOps = []string{">=", "<=", ">", "<", "="}
 
 // parseRequirements parses the -require flag values, "<name><op><value>".
 func parseRequirements(values stringsFlag) ([]requirement, error) {
@@ -369,60 +368,56 @@ func parseRequirements(values stringsFlag) ([]requirement, error) {
 // when either side is empty or a quoted name is malformed.
 func cutRequirement(s string) (string, string, string, bool) {
 	s = strings.TrimSpace(s)
+	var name string
 	if strings.HasPrefix(s, `"`) {
-		var name string
 		d := json.NewDecoder(strings.NewReader(s))
 		if err := d.Decode(&name); err != nil || name == "" {
 			return "", "", "", false
 		}
-		rest := strings.TrimSpace(s[d.InputOffset():])
-		for _, op := range requirementOps {
-			if value, ok := strings.CutPrefix(rest, op); ok {
-				value = strings.TrimSpace(value)
-				return name, op, value, value != ""
-			}
+		s = strings.TrimSpace(s[d.InputOffset():])
+	} else {
+		i := strings.IndexAny(s, "<>=")
+		if i <= 0 {
+			return "", "", "", false
 		}
+		name = strings.TrimSpace(s[:i])
+		s = s[i:]
+	}
+	if name == "" || s == "" || !strings.ContainsAny(s[:1], "<>=") {
 		return "", "", "", false
 	}
-	best, bestOp := -1, ""
-	for _, op := range requirementOps {
-		i := strings.Index(s, op)
-		if i < 0 {
-			continue
-		}
-		if best < 0 || i < best || (i == best && len(op) > len(bestOp)) {
-			best, bestOp = i, op
-		}
+	n := 1
+	if s[0] != '=' && len(s) > 1 && s[1] == '=' {
+		n = 2
 	}
-	if best <= 0 {
-		return "", "", "", false
-	}
-	name := strings.TrimSpace(s[:best])
-	value := strings.TrimSpace(s[best+len(bestOp):])
-	if name == "" || value == "" {
-		return "", "", "", false
-	}
-	return name, bestOp, value, true
+	op, value := s[:n], strings.TrimSpace(s[n:])
+	return name, op, value, value != ""
 }
 
-// validateRequirements ensures every requirement names a declared question and fits its type.
+// validateRequirements checks declared questions and labels and stores finite numeric thresholds.
 //
 // It reports a configuration error, so classy exits before asking anything. An operator that does not
 // fit the question type is caught here rather than reported as an answer that did not match.
 func validateRequirements(reqs []requirement, questions genai.Questions) error {
-	for _, r := range reqs {
+	for i := range reqs {
+		r := &reqs[i]
 		q, ok := questions[r.name]
 		if !ok {
 			return fmt.Errorf("-require %q: no question named %q", r.raw, r.name)
 		}
 		switch q.Type {
 		case genai.QuestionNoul, genai.QuestionScore:
-			if value, err := strconv.ParseFloat(r.value, 64); err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+			value, err := strconv.ParseFloat(r.value, 64)
+			if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
 				return fmt.Errorf("-require %q: a %s answer compares a finite number, got %q", r.raw, q.Type, r.value)
 			}
+			r.number = value
 		case genai.QuestionChoice:
 			if r.op != "=" {
 				return fmt.Errorf("-require %q: a choice answer only supports \"=\"", r.raw)
+			}
+			if _, ok := q.Choice[r.value]; !ok {
+				return fmt.Errorf("-require %q: no choice labeled %q for question %q", r.raw, r.value, r.name)
 			}
 		default:
 			return fmt.Errorf("-require %q: unknown question type %q", r.raw, q.Type)
@@ -445,13 +440,11 @@ func unmetRequirements(reqs []requirement, answers genai.Answers, minConfidence 
 		}
 		switch a.Type {
 		case genai.QuestionNoul:
-			want, _ := strconv.ParseFloat(r.value, 64)
-			if !compareFloat(a.Noul, r.op, want) {
+			if !compareFloat(a.Noul, r.op, r.number) {
 				unmet = append(unmet, fmt.Sprintf("%s: %.0f%% yes, want %s %s", r.name, 100*a.Noul, r.op, r.value))
 			}
 		case genai.QuestionScore:
-			want, _ := strconv.ParseFloat(r.value, 64)
-			if !compareFloat(a.Score, r.op, want) {
+			if !compareFloat(a.Score, r.op, r.number) {
 				unmet = append(unmet, fmt.Sprintf("%s: %.2f, want %s %s", r.name, a.Score, r.op, r.value))
 			}
 		case genai.QuestionChoice:
@@ -802,7 +795,7 @@ func printAnswers(w io.Writer, answers genai.Answers, quiet bool) error {
 // printAnswersJSONL prints one stable JSON object per answer, one per line.
 //
 // The fields are name, type and value, plus confidence and probabilities for a choice and a score, and
-// legend for a score. quiet drops probabilities and legend. It differs from -format json, which prints
+// legend for a score. quiet drops probabilities but retains legends. The json format instead prints
 // the JSON the API returned.
 func printAnswersJSONL(w io.Writer, answers genai.Answers, quiet bool) error {
 	enc := json.NewEncoder(w)

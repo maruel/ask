@@ -2,6 +2,8 @@
 
 Use `make build`, `make verify`, and `make test` for the Go tools. `make verify`
 includes the pinned license-header check.
+macOS/Windows CI and hosted CodeQL are CI-only checks. Their absence from local
+validation is not a validation gap and does not block review or commits.
 Run `python3 scripts/update_agents_file_index.py` after adding source files.
 
 <!-- BEGIN FILE INDEX -->

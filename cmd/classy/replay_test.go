@@ -26,6 +26,10 @@ import (
 // record it again. The recording matches on the request body, so it also asserts the questions and the
 // state that are sent.
 func TestClassify(t *testing.T) {
+	mode := recorder.ModeRecordOnce
+	if os.Getenv("RECORD") == "all" {
+		mode = recorder.ModeRecordOnly
+	}
 	ticket := []byte(`{"subject":"Charged twice this month","body":"I see two charges of $49 for August. Please fix this ASAP, I am pretty frustrated."}`)
 	questions, err := loadQuestions("",
 		stringsFlag{"billing=Is this request about billing?"},
@@ -34,8 +38,7 @@ func TestClassify(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// The state is a JSON object, so it is sent as a document. It is rebuilt per subtest because the
-	// document is read once.
+	// Each subtest needs a fresh document because its contents are read once.
 	state := func() *genai.Message {
 		return &genai.Message{Requests: []genai.Request{requestFromState(ticket, "ticket")}}
 	}
@@ -45,8 +48,11 @@ func TestClassify(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if err := validateRequirements(reqs, questions); err != nil {
+			t.Fatal(err)
+		}
 		b := &bytes.Buffer{}
-		if err = classify(t.Context(), newClient(t), state(), questions, b, classifyOptions{format: formatText, requirements: reqs, minConfidence: 0.5}); err != nil {
+		if err = classify(t.Context(), newClient(t, "testdata/"+t.Name(), mode), state(), questions, b, classifyOptions{format: formatText, requirements: reqs, minConfidence: 0.5}); err != nil {
 			t.Fatal(err)
 		}
 		want := hiblack + "billing" + reset + ": 99% yes\n" +
@@ -65,7 +71,7 @@ func TestClassify(t *testing.T) {
 	})
 	t.Run("json", func(t *testing.T) {
 		b := &bytes.Buffer{}
-		if err := classify(t.Context(), newClient(t), state(), questions, b, classifyOptions{format: formatJSON}); err != nil {
+		if err := classify(t.Context(), newClient(t, "testdata/"+t.Name(), mode), state(), questions, b, classifyOptions{format: formatJSON}); err != nil {
 			t.Fatal(err)
 		}
 		want := `{"billing":{"type":"noul","noul":0.99},` +
@@ -76,62 +82,23 @@ func TestClassify(t *testing.T) {
 			t.Fatalf("got  %q\nwant %q", got, want)
 		}
 	})
-}
-
-// newClient returns a client replaying, or recording, the HTTP session of the test.
-func newClient(t *testing.T) genai.Provider {
-	mode := recorder.ModeRecordOnce
-	if os.Getenv("RECORD") == "all" {
-		mode = recorder.ModeRecordOnly
-	}
-	opts := []genai.ProviderOption{
-		genai.ModelGood,
-		genai.ProviderOptionTransportWrapper(httprecord.Wrap(t, recorder.WithMode(mode))),
-	}
-	if os.Getenv("TYPESAFE_API_KEY") == "" {
-		opts = append(opts, genai.ProviderOptionAPIKey("<insert_api_key_here>"))
-	}
-	c, err := typesafe.New(t.Context(), opts...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		if err := c.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	return c
-}
-
-// TestClassifyFormats replays the recording of TestClassify to check the jsonl and tsv formats.
-//
-// It replays an existing cassette instead of recording its own, since the formats only change how the
-// answers are printed.
-func TestClassifyFormats(t *testing.T) {
-	ticket := []byte(`{"subject":"Charged twice this month","body":"I see two charges of $49 for August. Please fix this ASAP, I am pretty frustrated."}`)
-	questions, err := loadQuestions("",
-		stringsFlag{"billing=Is this request about billing?"},
-		stringsFlag{"tone=What is the tone of the customer?|calm|frustrated:annoyed but polite|angry:openly hostile"},
-		stringsFlag{"urgency=How soon does this need to be handled?|can wait|this week|today|right now"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	state := func() *genai.Message {
-		return &genai.Message{Requests: []genai.Request{requestFromState(ticket, "ticket")}}
-	}
+	// Output-only cases reuse the answers cassette and never record requests.
 	t.Run("write failure precedes unmet requirements", func(t *testing.T) {
 		reqs, err := parseRequirements(stringsFlag{"billing<0.1"})
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = classify(t.Context(), newReplayClient(t, "testdata/TestClassify/answers"), state(), questions, failingWriter{}, classifyOptions{format: formatText, quiet: true, requirements: reqs})
+		if err := validateRequirements(reqs, questions); err != nil {
+			t.Fatal(err)
+		}
+		err = classify(t.Context(), newClient(t, "testdata/TestClassify/answers", recorder.ModeReplayOnly), state(), questions, failingWriter{}, classifyOptions{format: formatText, quiet: true, requirements: reqs})
 		if !errors.Is(err, io.ErrClosedPipe) {
 			t.Fatalf("got %v, want output error", err)
 		}
 	})
 	t.Run("jsonl", func(t *testing.T) {
 		b := &bytes.Buffer{}
-		if err := classify(t.Context(), newReplayClient(t, "testdata/TestClassify/answers"), state(), questions, b, classifyOptions{format: formatJSONL}); err != nil {
+		if err := classify(t.Context(), newClient(t, "testdata/TestClassify/answers", recorder.ModeReplayOnly), state(), questions, b, classifyOptions{format: formatJSONL}); err != nil {
 			t.Fatal(err)
 		}
 		want := `{"name":"billing","type":"noul","value":0.99}` + "\n" +
@@ -143,7 +110,7 @@ func TestClassifyFormats(t *testing.T) {
 	})
 	t.Run("tsv", func(t *testing.T) {
 		b := &bytes.Buffer{}
-		if err := classify(t.Context(), newReplayClient(t, "testdata/TestClassify/answers"), state(), questions, b, classifyOptions{format: formatTSV}); err != nil {
+		if err := classify(t.Context(), newClient(t, "testdata/TestClassify/answers", recorder.ModeReplayOnly), state(), questions, b, classifyOptions{format: formatTSV}); err != nil {
 			t.Fatal(err)
 		}
 		want := "billing\tnoul\t0.99\t\n" +
@@ -155,30 +122,34 @@ func TestClassifyFormats(t *testing.T) {
 	})
 }
 
-// newReplayClient returns a client that replays an existing cassette in ModeReplayOnly.
-//
-// name is the cassette path without the .yaml extension, e.g. testdata/TestClassify/answers. Replaying
-// only means the test needs no API key and can never overwrite the recording.
-func newReplayClient(t *testing.T, name string) genai.Provider {
+// newClient returns a client using the named cassette and recording mode.
+func newClient(t *testing.T, name string, mode recorder.Mode) genai.Provider {
 	opts := []genai.ProviderOption{
 		genai.ModelGood,
-		genai.ProviderOptionAPIKey("<insert_api_key_here>"),
 		genai.ProviderOptionTransportWrapper(func(h http.RoundTripper) http.RoundTripper {
-			r, err := httprecord.New(name, h, recorder.WithMode(recorder.ModeReplayOnly))
+			r, err := httprecord.New(name, h, recorder.WithMode(mode))
 			if err != nil {
 				t.Fatal(err)
 			}
 			t.Cleanup(func() {
-				if err2 := r.Stop(); err2 != nil {
-					t.Error(err2)
+				if err := r.Stop(); err != nil {
+					t.Error(err)
 				}
 			})
 			return r
 		}),
 	}
+	if mode == recorder.ModeReplayOnly || os.Getenv("TYPESAFE_API_KEY") == "" {
+		opts = append(opts, genai.ProviderOptionAPIKey("<insert_api_key_here>"))
+	}
 	c, err := typesafe.New(t.Context(), opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		if err := c.Close(); err != nil {
+			t.Error(err)
+		}
+	})
 	return c
 }

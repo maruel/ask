@@ -418,7 +418,7 @@ func TestValidateRequirements(t *testing.T) {
 		},
 	}
 	t.Run("valid", func(t *testing.T) {
-		reqs, err := parseRequirements(stringsFlag{"billing>=0.9", "tone=frustrated", "urgency>2"})
+		reqs, err := parseRequirements(stringsFlag{"billing>=0.9", "tone=calm", "urgency>2"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -437,6 +437,7 @@ func TestValidateRequirements(t *testing.T) {
 			{in: "billing>-Inf", want: `-require "billing>-Inf": a noul answer compares a finite number, got "-Inf"`},
 			{in: "urgency<+Inf", want: `-require "urgency<+Inf": a score answer compares a finite number, got "+Inf"`},
 			{in: "tone>=0.5", want: `-require "tone>=0.5": a choice answer only supports "="`},
+			{in: "tone=frustrated", want: `-require "tone=frustrated": no choice labeled "frustrated" for question "tone"`},
 		}
 		for _, line := range data {
 			t.Run(line.in, func(t *testing.T) {
@@ -462,10 +463,19 @@ func TestUnmetRequirements(t *testing.T) {
 		"tone":    {Type: genai.QuestionChoice, Choice: "calm", Confidence: 0.84},
 		"urgency": {Type: genai.QuestionScore, Score: 1.8, Confidence: 0.61},
 	}
+	questions := genai.Questions{
+		"billing": {Type: genai.QuestionNoul},
+		"tone": {Type: genai.QuestionChoice, Choice: map[string]genai.DecisionContent{
+			"calm": nil, "frustrated": nil,
+		}},
+		"urgency": {Type: genai.QuestionScore},
+	}
 	parse := func(t *testing.T, values ...string) []requirement {
-		t.Helper()
 		reqs, err := parseRequirements(stringsFlag(values))
 		if err != nil {
+			t.Fatal(err)
+		}
+		if err := validateRequirements(reqs, questions); err != nil {
 			t.Fatal(err)
 		}
 		return reqs
@@ -523,6 +533,24 @@ func TestRequirementsExitError(t *testing.T) {
 			t.Fatalf("got %v, want nil", err)
 		}
 	})
+}
+
+func TestMainRequirements(t *testing.T) {
+	args, flags, usage, logger := os.Args, flag.CommandLine, flag.Usage, slog.Default()
+	t.Cleanup(func() {
+		os.Args, flag.CommandLine, flag.Usage = args, flags, usage
+		slog.SetDefault(logger)
+	})
+	// No state or provider is available. Invalid labels must fail before either is loaded.
+	os.Args = []string{"classy", "-choice", "tone=Tone?|calm|angry", "-require", "tone=frustrated"}
+	flag.CommandLine = flag.NewFlagSet("classy", flag.ContinueOnError)
+	err := Main()
+	if err == nil || err.Error() != `-require "tone=frustrated": no choice labeled "frustrated" for question "tone"` {
+		t.Fatalf("got %v, want invalid choice label error", err)
+	}
+	if _, ok := errors.AsType[*exitError](err); ok {
+		t.Fatalf("configuration failure must not use the unmet-requirement exit code: %v", err)
+	}
 }
 
 func TestMainMinConfidence(t *testing.T) {
