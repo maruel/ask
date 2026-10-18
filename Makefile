@@ -1,6 +1,6 @@
-# Build, verify, and test the ask command-line tools and AGENTS.md index.
+# Verify and test the ask command-line tools and AGENTS.md index.
 .DEFAULT_GOAL := help
-.PHONY: build custom-gcl fix git-hooks help test verify
+.PHONY: custom-gcl fix git-hooks help test verify
 
 custom-gcl:
 	@version=$$(go list -m -f '{{.Version}}' github.com/golangci/golangci-lint/v2) || exit 1; \
@@ -15,11 +15,7 @@ help:
 	@printf '  %-14s - %s\n' 'make fix' 'Format sources and refresh the agent index'
 	@printf '  %-14s - %s\n' 'make verify' 'Run static checks without tests'
 	@printf '  %-14s - %s\n' 'make test' 'Run tests with coverage and benchmark smoke tests'
-	@printf '  %-14s - %s\n' 'make build' 'Build all Go packages'
 	@printf '  %-14s - %s\n' 'make git-hooks' 'Install Git hooks'
-
-build:
-	@go build ./...
 
 verify: custom-gcl
 	@go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
