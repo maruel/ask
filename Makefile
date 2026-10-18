@@ -1,34 +1,47 @@
 # Build, verify, and test the ask command-line tools and AGENTS.md index.
 .DEFAULT_GOAL := help
-.PHONY: build custom-gcl git-hooks help test verify
+.PHONY: build custom-gcl fix git-hooks help test tools verify
 
-custom-gcl:
+custom-gcl: tools
 	@version=$$(go list -m -f '{{.Version}}' github.com/golangci/golangci-lint/v2) || exit 1; \
-	want=$$({ sha256sum .custom-gcl.yml | cut -d" " -f1; echo "$$version"; go env GOVERSION; } | sha256sum | cut -d" " -f1); \
-	if [ -x custom-gcl ] && [ "$$want" = "$$(cat .custom-gcl.sha 2>/dev/null)" ]; then exit 0; fi; \
+	want=$$(uv run --locked python -c 'import hashlib, pathlib, sys; print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes() + "\n".join(sys.argv[2:]).encode()).hexdigest())' .custom-gcl.yml "$$version" "$$(go env GOVERSION)") || exit 1; \
+	binary=custom-gcl; if [ "$$(go env GOOS)" = windows ]; then binary=custom-gcl.exe; fi; \
+	if [ -x "$$binary" ] && [ "$$want" = "$$(cat .custom-gcl.sha 2>/dev/null)" ]; then exit 0; fi; \
 	echo 'Building custom-gcl with methodfilecheck and commentcheck...'; \
 	go tool golangci-lint custom --version "$$version" && echo "$$want" > .custom-gcl.sha
 
 help:
+	@printf '  %-14s - %s\n' 'make help' 'Show available targets'
+	@printf '  %-14s - %s\n' 'make fix' 'Format sources and refresh the agent index'
+	@printf '  %-14s - %s\n' 'make verify' 'Run static checks without tests'
+	@printf '  %-14s - %s\n' 'make test' 'Run tests with coverage and benchmark smoke tests'
 	@printf '  %-14s - %s\n' 'make build' 'Build all Go packages'
-	@printf '  %-14s - %s\n' 'make verify' 'Run the static checks'
-	@printf '  %-14s - %s\n' 'make test' 'Run Go tests'
 	@printf '  %-14s - %s\n' 'make git-hooks' 'Install Git hooks'
 
 build:
 	@go build ./...
 
-verify: custom-gcl
+verify: tools custom-gcl
 	@go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 	@./custom-gcl run --show-stats=false ./...
 	@go vet ./...
 	@go test -run '^$$' ./...
-	@go tool addlicense -ignore pyproject.toml -ignore '**/testdata/**' -check .
-	@python3 scripts/lint_binaries.py
-	@python3 scripts/update_agents_file_index.py --check
+	@go tool addlicense -ignore pyproject.toml -ignore '**/testdata/**' -ignore '.venv/**' -ignore '.ruff_cache/**' -check .
+	@uv run --locked python scripts/lint_binaries.py
+	@uv run --locked python scripts/update_agents_file_index.py --check
+	@uv run --locked ruff check scripts
+	@uv run --locked ruff format --check scripts
 
 test:
-	@go test ./...
+	@go test -timeout=600s -v -covermode=count -coverprofile coverage.txt -bench=. -benchtime=1x ./...
 
 git-hooks:
 	@./scripts/install-git-hooks.sh
+
+fix: tools custom-gcl
+	@./custom-gcl fmt
+	@uv run --locked ruff format scripts
+	@uv run --locked python scripts/update_agents_file_index.py
+
+tools:
+	@uv sync --locked --quiet

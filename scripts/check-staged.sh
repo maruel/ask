@@ -21,4 +21,10 @@ if ! git diff --quiet; then
   printf '%s\n' 'Stage all tracked changes before committing; the index check reads the worktree.' >&2
   exit 1
 fi
-python3 scripts/update_agents_file_index.py --check
+untracked=$(git ls-files --others --exclude-standard)
+if [[ -n "$untracked" ]]; then
+  printf '%s\n' 'Stage or ignore untracked files before committing; the index check includes them:' "$untracked" >&2
+  exit 1
+fi
+uv run --locked python scripts/lint_binaries.py
+uv run --locked python scripts/update_agents_file_index.py --check

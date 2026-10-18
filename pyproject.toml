@@ -1,3 +1,20 @@
+# Copyright 2026 Marc-Antoine Ruel. All rights reserved.
+# Use of this source code is governed under the Apache License, Version 2.0
+# that can be found in the LICENSE file.
+
+# Locked Python development tools and repository script checks.
+[project]
+name = "ask-dev"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = ["ruff==0.16.8"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 120
