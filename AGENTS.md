@@ -1,6 +1,6 @@
 # ask
 
-Install Go and uv. `make tools` syncs locked Python development dependencies.
+Install Go and uv. Python commands use `uv run --locked` to manage dependencies.
 Use `make help` to discover targets and `make git-hooks` to install hooks.
 Use `make build`, `make verify`, and `make test` for the Go tools. `make verify`
 includes the pinned license-header check. `make test` runs tests with

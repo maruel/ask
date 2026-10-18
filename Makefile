@@ -1,8 +1,8 @@
 # Build, verify, and test the ask command-line tools and AGENTS.md index.
 .DEFAULT_GOAL := help
-.PHONY: build custom-gcl fix git-hooks help test tools verify
+.PHONY: build custom-gcl fix git-hooks help test verify
 
-custom-gcl: tools
+custom-gcl:
 	@version=$$(go list -m -f '{{.Version}}' github.com/golangci/golangci-lint/v2) || exit 1; \
 	want=$$(uv run --locked python -c 'import hashlib, pathlib, sys; print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes() + "\n".join(sys.argv[2:]).encode()).hexdigest())' .custom-gcl.yml "$$version" "$$(go env GOVERSION)") || exit 1; \
 	binary=custom-gcl; if [ "$$(go env GOOS)" = windows ]; then binary=custom-gcl.exe; fi; \
@@ -21,7 +21,7 @@ help:
 build:
 	@go build ./...
 
-verify: tools custom-gcl
+verify: custom-gcl
 	@go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 	@./custom-gcl run --show-stats=false ./...
 	@go vet ./...
@@ -38,10 +38,7 @@ test:
 git-hooks:
 	@./scripts/install-git-hooks.sh
 
-fix: tools custom-gcl
+fix: custom-gcl
 	@./custom-gcl fmt
 	@uv run --locked ruff format scripts
 	@uv run --locked python scripts/update_agents_file_index.py
-
-tools:
-	@uv sync --locked --quiet
