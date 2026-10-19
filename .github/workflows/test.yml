@@ -53,9 +53,6 @@ jobs:
       - uses: codecov/codecov-action@v7
         with:
           token: ${{secrets.CODECOV_TOKEN}}
-      - name: "Cleanup"
-        if: always()
-        run: rm -f coverage.txt codecov codecov.*
       - name: "Check: tree is clean"
         if: always()
         run: |
@@ -79,16 +76,6 @@ jobs:
           if ! test -z "$TOUCHED"; then
             echo "go generate created these files, please fix:"
             echo "$TOUCHED"
-            false
-          fi
-      - name: "Check: go mod tidy doesn't modify files"
-        if: always()
-        run: |
-          go mod tidy
-          TOUCHED=$(git status --porcelain)
-          if ! test -z "$TOUCHED"; then
-            echo "go mod tidy was not clean, please update:"
-            git diff
             false
           fi
 

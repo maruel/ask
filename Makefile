@@ -18,9 +18,9 @@ help:
 	@printf '  %-14s - %s\n' 'make git-hooks' 'Install Git hooks'
 
 verify: custom-gcl
+	@go mod tidy -diff
 	@go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
 	@./custom-gcl run --show-stats=false ./...
-	@go vet ./...
 	@go test -run '^$$' ./...
 	@go tool addlicense -ignore pyproject.toml -ignore '**/testdata/**' -ignore '.venv/**' -ignore '.ruff_cache/**' -check .
 	@uv run --locked python scripts/lint_binaries.py
