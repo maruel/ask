@@ -26,7 +26,7 @@ verify: custom-gcl
 	@uv run --locked python scripts/lint_binaries.py
 	@uv run --locked python scripts/update_agents_file_index.py --check
 	@uv run --locked ruff check scripts
-	@uv run --locked ruff format --check scripts
+	@uv run --locked ruff format --check --quiet scripts
 
 test:
 	@go test -timeout=600s -v -covermode=count -coverprofile coverage.txt -bench=. -benchtime=1x ./...
@@ -36,5 +36,5 @@ git-hooks:
 
 fix: custom-gcl
 	@./custom-gcl fmt
-	@uv run --locked ruff format scripts
+	@uv run --locked ruff format scripts >/dev/null
 	@uv run --locked python scripts/update_agents_file_index.py
