@@ -319,6 +319,7 @@ func TestFindAvailable(t *testing.T) {
 // fakeHTTPProvider implements just enough of genai.Provider for downloadDoc.
 type fakeHTTPProvider struct {
 	genai.Provider
+
 	client *http.Client
 }
 
@@ -403,6 +404,7 @@ func (f testTransport) RoundTrip(r *http.Request) (*http.Response, error) { retu
 // fakeRequestProvider returns a fixed stream and result without a network request.
 type fakeRequestProvider struct {
 	fakeHTTPProvider
+
 	result genai.Result
 	err    error
 }

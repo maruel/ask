@@ -3,6 +3,7 @@
 // that can be found in the LICENSE file.
 
 // Tests for batch provider ownership and cleanup errors.
+
 package main
 
 import (
@@ -40,6 +41,7 @@ func TestLoadProviderGenAsync(t *testing.T) {
 
 type fakeProvider struct {
 	genai.Provider
+
 	closed   bool
 	errClose error
 }

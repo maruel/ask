@@ -630,6 +630,7 @@ func TestPrintAnswersWriteError(t *testing.T) {
 // closeErrorProvider supplies a provider cleanup result.
 type closeErrorProvider struct {
 	genai.Provider
+
 	err error
 }
 
