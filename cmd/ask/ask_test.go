@@ -48,39 +48,23 @@ func (m fakeModel) String() string {
 // Context implements genai.Model.
 func (m fakeModel) Context() int64 { return m.ctx }
 
-// textScenario returns a text scenario selecting the given models.
-func textScenario(models []string, sota, good, cheap bool) scoreboard.Scenario {
-	return scoreboard.Scenario{
-		Models: models,
-		SOTA:   sota,
-		Good:   good,
-		Cheap:  cheap,
-		Out:    map[scoreboard.Modality]scoreboard.ModalCapability{scoreboard.ModalityText: {}},
-	}
-}
-
 func TestModelTiers(t *testing.T) {
-	s := scoreboard.Score{Scenarios: []scoreboard.Scenario{
-		textScenario([]string{"best"}, true, false, false),
-		textScenario([]string{"everyday"}, false, true, false),
-		textScenario([]string{"cheapo"}, false, false, true),
-		textScenario([]string{"shared"}, true, true, true),
-		textScenario([]string{"shared"}, false, true, true),
-		{
-			Models: []string{"painter"},
-			SOTA:   true,
-			Out:    map[scoreboard.Modality]scoreboard.ModalCapability{scoreboard.ModalityImage: {}},
+	s := scoreboard.Score{
+		Chat: []scoreboard.Chat{
+			{Models: []string{"best"}, SOTA: true},
+			{Models: []string{"shared"}, Good: true, Cheap: true},
+			{Models: []string{"shared"}, Good: true},
+			{Models: []string{"painter"}, SOTA: true, Out: map[scoreboard.Modality]scoreboard.ModalCapability{scoreboard.ModalityImage: {}}},
+			{Models: []string{"plain"}},
 		},
-		// A plain scenario selects nothing automatically.
-		textScenario([]string{"plain", "another"}, false, false, false),
-	}}
+		Embed:     []scoreboard.Embed{{Models: []string{"embed"}, Good: true}},
+		SystemOne: []scoreboard.SystemOne{{Models: []string{"decision"}, Cheap: true, Out: map[scoreboard.Modality]scoreboard.ModalCapability{scoreboard.ModalityDecision: {}}}},
+		Realtime:  []scoreboard.Realtime{{Models: []string{"voice"}, SOTA: true, Out: map[scoreboard.Modality]scoreboard.ModalCapability{scoreboard.ModalityAudio: {}}}},
+	}
 	got := modelTiers(&s)
 	want := map[string][]string{
-		"best":     {"sota"},
-		"everyday": {"good"},
-		"cheapo":   {"cheap"},
-		"painter":  {"sota image"},
-		"shared":   {"cheap", "good", "sota"},
+		"best": {"sota"}, "shared": {"cheap", "good"}, "painter": {"sota image"},
+		"embed": {"good embedding"}, "decision": {"cheap decision"}, "voice": {"sota audio"},
 	}
 	if !maps.EqualFunc(got, want, slices.Equal) {
 		t.Fatalf("got  %#v\nwant %#v", got, want)
@@ -88,17 +72,14 @@ func TestModelTiers(t *testing.T) {
 }
 
 func TestPrintModels(t *testing.T) {
-	s := scoreboard.Score{Scenarios: []scoreboard.Scenario{
-		textScenario([]string{"best"}, true, false, false),
-	}}
+	s := scoreboard.Score{Chat: []scoreboard.Chat{{Models: []string{"best"}, SOTA: true}}}
 	models := []genai.Model{
 		fakeModel{id: "best", str: "best: The Best (2026-01-01)"},
 		fakeModel{id: "plain", str: "plain: Plain (2026-01-01)"},
 	}
 	b := &bytes.Buffer{}
 	printModels(b, models, &s)
-	want := "best: The Best (2026-01-01)  [sota]\n" +
-		"plain: Plain (2026-01-01)\n"
+	want := "best: The Best (2026-01-01)  [sota]\n" + "plain: Plain (2026-01-01)\n"
 	if got := b.String(); got != want {
 		t.Fatalf("got  %q\nwant %q", got, want)
 	}

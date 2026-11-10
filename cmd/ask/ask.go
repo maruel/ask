@@ -370,16 +370,16 @@ func printModels(w io.Writer, models []genai.Model, s *scoreboard.Score) {
 // Providers with dynamic model selection may choose a different model from their live model list.
 func modelTiers(s *scoreboard.Score) map[string][]string {
 	out := map[string][]string{}
-	for i := range s.Scenarios {
-		sc := &s.Scenarios[i]
+	add := func(sc scoreboard.ScoreRow) {
+		r := sc.Base()
 		var tiers []string
-		if sc.Cheap {
+		if r.Cheap {
 			tiers = append(tiers, "cheap")
 		}
-		if sc.Good {
+		if r.Good {
 			tiers = append(tiers, "good")
 		}
-		if sc.SOTA {
+		if r.SOTA {
 			tiers = append(tiers, "sota")
 		}
 		mods := outputModalities(sc)
@@ -387,12 +387,24 @@ func modelTiers(s *scoreboard.Score) map[string][]string {
 			if len(mods) != 0 {
 				tier += " " + strings.Join(mods, ",")
 			}
-			for _, m := range sc.Models {
+			for _, m := range r.Models {
 				if !slices.Contains(out[m], tier) {
 					out[m] = append(out[m], tier)
 				}
 			}
 		}
+	}
+	for i := range s.Chat {
+		add(&s.Chat[i])
+	}
+	for i := range s.Embed {
+		add(&s.Embed[i])
+	}
+	for i := range s.SystemOne {
+		add(&s.SystemOne[i])
+	}
+	for i := range s.Realtime {
+		add(&s.Realtime[i])
 	}
 	for _, tiers := range out {
 		slices.Sort(tiers)
@@ -403,9 +415,9 @@ func modelTiers(s *scoreboard.Score) map[string][]string {
 // outputModalities returns the non-text output modalities of a scenario, sorted.
 //
 // It returns nil for a text scenario, the common case, so that its tag stays short.
-func outputModalities(sc *scoreboard.Scenario) []string {
+func outputModalities(sc scoreboard.ScoreRow) []string {
 	var mods []string
-	for m := range sc.Out {
+	for m := range sc.Outputs() {
 		if m != scoreboard.ModalityText {
 			mods = append(mods, string(m))
 		}
