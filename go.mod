@@ -4,7 +4,7 @@ go 1.27.3
 
 require (
 	github.com/lmittmann/tint v1.2.0
-	github.com/maruel/genai v0.11.0
+	github.com/maruel/genai v0.11.1
 	github.com/maruel/genaitools v0.2.4
 	github.com/maruel/roundtrippers v0.5.1
 	github.com/mattn/go-colorable v0.1.16
